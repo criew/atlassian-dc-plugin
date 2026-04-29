@@ -104,6 +104,74 @@ def cmd_delete(args):
     emit({"deleted": args.key}, args, human=f"deleted {args.key}")
 
 
+def cmd_bulk_create(args):
+    """Bulk-create issues from a JSON file.
+
+    File format: a JSON list of issue field dicts, e.g.
+        [
+          {"project": "TST", "summary": "Bug 1", "issuetype": "Bug",
+           "priority": "High", "assignee": "alice"},
+          {"project": "TST", "summary": "Story 2", "issuetype": "Story",
+           "labels": ["frontend"]}
+        ]
+    """
+    import json as _json
+    p = Path(args.file)
+    if not p.exists():
+        raise ValidationError(f"file not found: {p}")
+    raw = _json.loads(p.read_text(encoding="utf-8"))
+    if not isinstance(raw, list) or not raw:
+        raise ValidationError("file must contain a non-empty JSON list of issue dicts")
+
+    issue_updates = []
+    for entry in raw:
+        if not isinstance(entry, dict):
+            raise ValidationError("each list element must be a dict")
+        if "project" not in entry or "summary" not in entry or "issuetype" not in entry:
+            raise ValidationError(f"missing required project/summary/issuetype in {entry!r}")
+        fields = {
+            "project":   {"key": entry["project"]},
+            "summary":   entry["summary"],
+            "issuetype": {"name": entry["issuetype"]},
+        }
+        for k in ("description",):
+            if k in entry:
+                fields[k] = entry[k]
+        if entry.get("priority"):
+            fields["priority"] = {"name": entry["priority"]}
+        if entry.get("assignee"):
+            fields["assignee"] = {"name": entry["assignee"]}
+        if entry.get("labels"):
+            fields["labels"] = entry["labels"]
+        if entry.get("parent"):
+            fields["parent"] = {"key": entry["parent"]}
+        if entry.get("fix_versions"):
+            fields["fixVersions"] = [{"name": v} for v in entry["fix_versions"]]
+        issue_updates.append({"fields": fields})
+    body = {"issueUpdates": issue_updates}
+
+    if args.dry_run:
+        emit_dry_run(
+            {"method": "POST", "path": "/rest/api/2/issue/bulk", "count": len(issue_updates)},
+            args,
+            human=f"would bulk-create {len(issue_updates)} issue(s) from {args.file}",
+        )
+        return
+
+    client = get_jira(args)
+    data = client.post("issue/bulk", body)
+    issues = data.get("issues", [])
+    errs = data.get("errors", [])
+    if args.json:
+        emit(data, args)
+        return
+    keys = [i.get("key") for i in issues]
+    summary = f"created {len(issues)}/{len(issue_updates)}: {', '.join(keys)}"
+    if errs:
+        summary += f" — {len(errs)} error(s); see --json for detail"
+    emit(data, args, human=summary)
+
+
 def main():
     p = argparse.ArgumentParser(description="Jira issue CRUD")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -142,6 +210,12 @@ def main():
     d.add_argument("key")
     add_common_args(d)
     d.set_defaults(func=cmd_delete)
+
+    b = sub.add_parser("bulk-create",
+                       help="create many issues from a JSON list file")
+    b.add_argument("--file", required=True, help="path to JSON file (list of issue dicts)")
+    add_common_args(b)
+    b.set_defaults(func=cmd_bulk_create)
 
     args = p.parse_args()
     args.func(args)

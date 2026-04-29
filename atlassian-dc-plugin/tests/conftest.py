@@ -11,8 +11,22 @@ import pytest
 PLUGIN_ROOT = Path(__file__).resolve().parents[1]
 SHARED_DIR = PLUGIN_ROOT / "shared"
 SCRIPTS_ROOT = PLUGIN_ROOT / "skills" / "jira-dc" / "scripts"
+SKILLS_DIR = PLUGIN_ROOT / "skills"
 
 sys.path.insert(0, str(SHARED_DIR))
+
+
+def _resolve_script_path(relpath: str) -> Path:
+    """Map 'core/jira_x.py' -> jira-dc; 'core/confluence_x.py' -> confluence-dc;
+    'core/bitbucket_x.py' -> bitbucket-dc. The fallback (no product prefix in
+    the filename) keeps the legacy jira-dc default so old tests still work.
+    """
+    name = Path(relpath).name
+    if name.startswith("confluence_"):
+        return SKILLS_DIR / "confluence-dc" / "scripts" / relpath
+    if name.startswith("bitbucket_"):
+        return SKILLS_DIR / "bitbucket-dc" / "scripts" / relpath
+    return SCRIPTS_ROOT / relpath
 
 
 @pytest.fixture
@@ -72,7 +86,7 @@ def script_runner(isolated_config, write_instances):
         env["ATLASSIAN_CONFIG_DIR"] = str(isolated_config)
         if extra_env:
             env.update(extra_env)
-        script = SCRIPTS_ROOT / script_relpath
+        script = _resolve_script_path(script_relpath)
         return subprocess.run(
             [sys.executable, str(script), *args],
             capture_output=True, text=True, env=env, timeout=timeout,

@@ -45,40 +45,47 @@ distribution scopes:
 
 ┌──────────────────────────────────────────────────────────────────┐
 │  Layer 3 — DEV-ONLY (this repo, NOT shipped with the plugin)     │
-│  Path: docker/, setup_jira.py, setup_jira_http.py,                │
-│        atlassian-dc-plugin/tests/                                 │
-│  Contains: docker-compose for a local Jira DC, helper scripts to  │
-│            seed the wizard, automated tests for the plugin code.  │
+│  Path: docker/, dev/, atlassian-dc-plugin/tests/                  │
+│  Contains: docker-compose for the full Jira/Confluence/Bitbucket  │
+│            DC stack, auto-setup pipeline (license fetch + wizard  │
+│            walk + PAT bootstrap), automated tests for the skills. │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
 The plugin (Layer 1) is the only thing a user installs. Layer 2 is something
-they hand-author (or generate once via setup script). Layer 3 only exists in
-this repo — it is the development environment we use to build and verify
-Layer 1 against a real Jira instance.
+they hand-author (or generate once via the setup pipeline). Layer 3 only
+exists in this repo — it is the development environment we use to build and
+verify Layer 1 against real Jira / Confluence / Bitbucket instances.
 
 ## Layer 1: Plugin Structure
 
 ```
 atlassian-dc-plugin/
 ├── .claude-plugin/
-│   └── plugin.json                  # Claude Code plugin manifest
-├── README.md                        # User-facing setup guide
+│   └── plugin.json                  # Claude Code plugin manifest (lists all 3 skills)
+├── README.md                        # user-facing setup guide
 ├── pyproject.toml                   # uv-runnable, declares deps
 ├── instances.json.example           # template for user config
 ├── rules.example.md                 # template for per-instance rules
 ├── shared/
-│   └── _common.py                   # AtlassianClient, multi-instance loader,
-│                                    # CLI helpers, error mapping, rules loader
+│   ├── _common.py                   # config + rules loader, errors, CLI helpers,
+│   │                                # JiraClient
+│   ├── _confluence.py               # ConfluenceClient + paginate() (_links.next)
+│   └── _bitbucket.py                # BitbucketClient + paginate() (isLastPage)
 ├── skills/
-│   └── jira-dc/
-│       ├── SKILL.md                 # thin Skill manifest — when to trigger,
-│       │                            # script inventory, common flags
-│       └── scripts/
-│           ├── core/                # main CRUD: issue, search, project, version
-│           ├── workflow/            # transitions, comments
-│           └── utility/             # whoami, fields, rules
-└── tests/                           # unit + CLI tests for the scripts above
+│   ├── jira-dc/                     # 16 scripts — issue, search, project,
+│   │                                # version, component, agile, attachment,
+│   │                                # transition, comment, worklog, link,
+│   │                                # watcher, user, group, fields, rules
+│   ├── confluence-dc/               # 8 scripts — space, page (with auto
+│   │                                # version-bump, history, export-url),
+│   │                                # search (CQL), comment, label,
+│   │                                # attachment, restriction, user
+│   └── bitbucket-dc/                # 11 scripts — project, repo, branch,
+│                                    # tag, commit, file (incl. code search),
+│                                    # pr (full lifecycle), webhook,
+│                                    # permission, build (build-status), user
+└── tests/                           # 172 pytest cases across 8 test files
 ```
 
 ### Why three sub-folders inside `scripts/`?
@@ -88,12 +95,20 @@ visual noise inside any one folder and helps the LLM pick the right script by
 intent rather than by flat name. `scripts/core/` is what the LLM reaches for
 first; the others are specializations.
 
-### Why a `shared/` library at the plugin root?
+### `shared/` library at the plugin root
 
-When we add `confluence-dc/` and `bitbucket-dc/` skills, they will share the
-same `AtlassianClient`, the same instance loader, and the same CLI conventions.
-Having `shared/` at the plugin root (not inside any skill) makes that future
-ergonomic. Today only `jira-dc` consumes it, but the structure is ready.
+All three skills (`jira-dc`, `confluence-dc`, `bitbucket-dc`) share:
+- `_common.py` — generic helpers: instance + rules loader, error classes,
+  argparse helpers, `emit()` / `emit_dry_run()` output helpers, the universal
+  CLI flag block, the `JiraClient` HTTP wrapper.
+- `_confluence.py` — `ConfluenceClient` + `paginate()` helper for `_links.next`.
+- `_bitbucket.py` — `BitbucketClient` + `paginate()` for `start`/`limit` /
+  `isLastPage`.
+
+Each product client class has the same interface (`get`/`post`/`put`/`delete`,
+PAT-only Bearer auth, identical error mapping). Putting clients next to each
+other in `shared/` lets us add a `seed_data.py` or other dev tooling without
+duplicating client code.
 
 ### Why thin SKILL.md?
 
@@ -269,28 +284,24 @@ Both scripts also snap session cookies, so they double as a one-shot
   end-to-end and the script has worked unattended on every fresh container
   reset since.
 
-### `atlassian-dc-plugin/tests/`
+### `atlassian-dc-plugin/tests/` — 172 reproducible pytest cases
 
-Pytest suite. Three layers of tests:
+The suite has eight files; **no real Atlassian server is required**, errors are
+mocked via `responses`. The conftest's `script_runner` fixture invokes scripts
+as a weak LLM would — via subprocess — so exit codes, stderr text, and
+stdout-vs-stderr separation are all asserted.
 
-1. **`test_config_loader.py`** — unit tests for instance/rules resolution.
-   Covers missing files, bad JSON, alias precedence, project-filtered rules.
-
-2. **`test_client_errors.py`** — HTTP error mapping. Uses `responses` to mock
-   Jira; verifies that 401/403/404/400/500 turn into the right exception class
-   with a clear, actionable message. Critically: tests that the PAT never
-   leaks into stringified errors.
-
-3. **`test_cli_error_visibility.py`** — subprocess tests. Calls the actual
-   scripts as a weak LLM would, asserts:
-   - failures use exit code ≠ 0 and put errors on stderr
-   - stdout never looks like a "silent success" on failure
-   - `--dry-run` always emits its marker, **even with `--quiet`**
-   - unknown alias lists available aliases (not silent dead end)
-   - JSON dry-run payload includes `"executed": false`
-
-These tests run with **no real Jira required**; they are about code-level
-robustness. The container is for end-to-end exploratory testing.
+| File | What it covers |
+|---|---|
+| `test_config_loader.py` | instance + rules resolution: missing files, bad JSON, alias precedence (CLI > env > default), project-filtered rules |
+| `test_client_errors.py` | `JiraClient` HTTP error mapping — 401/403/404/400/500 → typed exceptions with clear messages; **PAT never leaks into stringified errors** |
+| `test_confluence_client.py` | `ConfluenceClient` URL joining (no `/2`), error mapping, empty 204, unparseable error body, PAT non-leakage |
+| `test_bitbucket_client.py` | `BitbucketClient` paginate() with `isLastPage`/`nextPageStart`, limit cap, error mapping |
+| `test_cli_error_visibility.py` | scripts: failures exit ≠0 with stderr; `--dry-run` always emits its marker, **even with `--quiet`**; unknown alias lists what IS available; JSON dry-run carries `"executed": false` |
+| `test_new_scripts_cli.py` | jira worklog/link/watcher/agile/attachment/version + jira_user create + jira_issue parent/fix-version + fields editmeta/createmeta |
+| `test_confluence_scripts_cli.py` | spaces, pages (with auto version-bump in dry-run), CQL search, comment replies, label payload shape, multipart attachment validation, blogpost type, `--purge=trashed` |
+| `test_bitbucket_scripts_cli.py` | projects, repos (incl. fork/delete), branches, tags, commits, files (code search), full PR lifecycle, user search |
+| `test_extras_cli.py` | jira components, groups, user update/delete/assignable, bulk-create from JSON; confluence restrictions + history + export-URL; bitbucket webhooks, permissions (project- vs repo-scope), build statuses |
 
 **Tests are NOT shipped with the plugin.** They live inside the plugin
 directory only because pytest's discovery is path-relative; production

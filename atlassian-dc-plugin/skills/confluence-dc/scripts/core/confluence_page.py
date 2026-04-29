@@ -198,6 +198,47 @@ def cmd_ancestors(args):
     emit(ancestors, args, human="\n".join(lines) + f"\n\n{len(ancestors)} ancestor(s)")
 
 
+def cmd_history(args):
+    """List all versions of a page (number, when, author, message)."""
+    client = get_confluence(args)
+    data = client.get(f"content/{args.id}/version", params={"limit": args.limit})
+    versions = data.get("results", [])
+    if args.json:
+        emit(data, args)
+        return
+    if not versions:
+        emit([], args, human=f"no version history for {args.id}")
+        return
+    lines = []
+    for v in versions:
+        when = (v.get("when") or "")[:19]
+        by = ((v.get("by") or {}).get("displayName") or
+              (v.get("by") or {}).get("username") or "?")
+        msg = (v.get("message") or "").strip()
+        lines.append(f"v{v.get('number'):<4} {when}  {by:<20} {msg}")
+    emit(versions, args, human="\n".join(lines) + f"\n\n{len(versions)} version(s)")
+
+
+def cmd_export(args):
+    """Print the URL the browser would use to download an export.
+
+    The Confluence DC export endpoints (`/exportword`, `/spaces/exportallpages`)
+    require a logged-in browser session because they stream the file from a
+    UI servlet, not a REST endpoint. This command outputs the URL so the user
+    (or LLM, via curl with the PAT cookie session) can fetch it.
+    """
+    base = get_confluence(args).instance.url
+    if args.format == "pdf":
+        url = f"{base}/spaces/flyingpdf/pdfpageexport.action?pageId={args.id}"
+    elif args.format == "word":
+        url = f"{base}/exportword?pageId={args.id}"
+    else:
+        raise ValidationError(f"unknown format: {args.format}")
+    payload = {"page_id": args.id, "format": args.format, "url": url}
+    emit(payload, args, human=f"export URL ({args.format}): {url}\n"
+                              f"(open in browser while logged in, or curl with session cookie)")
+
+
 def main():
     p = argparse.ArgumentParser(description="Confluence page CRUD")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -242,6 +283,18 @@ def main():
     an.add_argument("id")
     add_common_args(an)
     an.set_defaults(func=cmd_ancestors)
+
+    h = sub.add_parser("history", help="list all versions of a page")
+    h.add_argument("id")
+    h.add_argument("--limit", type=int, default=50)
+    add_common_args(h)
+    h.set_defaults(func=cmd_history)
+
+    e = sub.add_parser("export", help="print export URL (PDF/Word, browser-only in DC)")
+    e.add_argument("id")
+    e.add_argument("--format", choices=["pdf", "word"], default="pdf")
+    add_common_args(e)
+    e.set_defaults(func=cmd_export)
 
     args = p.parse_args()
     args.func(args)
