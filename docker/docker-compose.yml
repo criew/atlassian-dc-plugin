@@ -1,0 +1,99 @@
+services:
+  atlassian-db:
+    image: postgres:15
+    container_name: atlassian-db
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - atlassian-db-data:/var/lib/postgresql/data
+      - ./postgres-init.sh:/docker-entrypoint-initdb.d/init.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks:
+      - atlassian
+
+  jira:
+    image: atlassian/jira-software:9.12
+    container_name: jira
+    depends_on:
+      atlassian-db:
+        condition: service_healthy
+    environment:
+      ATL_JDBC_URL: jdbc:postgresql://atlassian-db:5432/jiradb
+      ATL_JDBC_USER: jira
+      ATL_JDBC_PASSWORD: jira
+      ATL_DB_DRIVER: org.postgresql.Driver
+      ATL_DB_TYPE: postgres72
+      JVM_MINIMUM_MEMORY: 1024m
+      JVM_MAXIMUM_MEMORY: 2048m
+      JVM_RESERVED_CODE_CACHE_SIZE: 512m
+      ATL_PROXY_NAME: localhost
+      ATL_PROXY_PORT: "8080"
+      ATL_TOMCAT_SCHEME: http
+    ports:
+      - "8080:8080"
+    volumes:
+      - jira-data:/var/atlassian/application-data/jira
+    networks:
+      - atlassian
+
+  confluence:
+    image: atlassian/confluence:8.5
+    container_name: confluence
+    depends_on:
+      atlassian-db:
+        condition: service_healthy
+    environment:
+      ATL_JDBC_URL: jdbc:postgresql://atlassian-db:5432/confluencedb
+      ATL_JDBC_USER: confluence
+      ATL_JDBC_PASSWORD: confluence
+      ATL_DB_TYPE: postgresql
+      JVM_MINIMUM_MEMORY: 1024m
+      JVM_MAXIMUM_MEMORY: 2048m
+      ATL_PROXY_NAME: localhost
+      ATL_PROXY_PORT: "8090"
+      ATL_TOMCAT_SCHEME: http
+    ports:
+      - "8090:8090"
+    volumes:
+      - confluence-data:/var/atlassian/application-data/confluence
+    networks:
+      - atlassian
+
+  bitbucket:
+    image: atlassian/bitbucket:8.19
+    container_name: bitbucket
+    depends_on:
+      atlassian-db:
+        condition: service_healthy
+    environment:
+      JDBC_DRIVER: org.postgresql.Driver
+      JDBC_URL: jdbc:postgresql://atlassian-db:5432/bitbucketdb
+      JDBC_USER: bitbucket
+      JDBC_PASSWORD: bitbucket
+      JVM_MINIMUM_MEMORY: 512m
+      JVM_MAXIMUM_MEMORY: 1024m
+      SERVER_PROXY_NAME: localhost
+      SERVER_PROXY_PORT: "7990"
+      SERVER_SCHEME: http
+    ports:
+      - "7990:7990"
+      - "7999:7999"   # SSH
+    volumes:
+      - bitbucket-data:/var/atlassian/application-data/bitbucket
+    networks:
+      - atlassian
+
+volumes:
+  atlassian-db-data:
+  jira-data:
+  confluence-data:
+  bitbucket-data:
+
+networks:
+  atlassian:
+    driver: bridge

@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Local credentials and instance data — must NEVER be committed
+instances.json
+*.env
+.env
+rules/local.md
+rules/staging.md
+rules/prod.md
+
+# Variant inputs (extracted reference material; not part of the project)
+variant1/
+variant2/
+skills.zip
+skills2.zip
+
+# Dev artifacts
+setup-screenshots/
+*.tmp
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# Docker
+docker/data/

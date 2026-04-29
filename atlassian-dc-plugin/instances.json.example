@@ -1,0 +1,29 @@
+{
+  "default": "local",
+  "instances": {
+    "local": {
+      "jira": {
+        "url": "http://localhost:8080",
+        "token": "your-jira-pat-here",
+        "ssl_verify": false
+      }
+    },
+    "prod": {
+      "jira": {
+        "url": "https://jira.company.com",
+        "token": "your-prod-pat",
+        "ssl_verify": true
+      },
+      "confluence": {
+        "url": "https://confluence.company.com",
+        "token": "your-prod-conf-pat",
+        "ssl_verify": true
+      },
+      "bitbucket": {
+        "url": "https://bitbucket.company.com",
+        "token": "your-prod-bb-pat",
+        "ssl_verify": true
+      }
+    }
+  }
+}
