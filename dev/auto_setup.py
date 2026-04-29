@@ -173,52 +173,66 @@ def conf_run_wizard(s: requests.Session, base: str, admin: dict) -> bool:
 
 def conf_walk_until_done(s: requests.Session, base: str, admin: dict) -> bool:
     """After license is accepted, keep submitting the visible form on each
-    setup page until the wizard is complete (URL leaves /setup/...)."""
-    seen = set()
-    for step in range(20):
-        url = s.get(base + "/", allow_redirects=True, timeout=120).url
+    setup page until the wizard is complete (URL leaves /setup/...).
+
+    Hang detection: the same URL twice in a row without form action change is
+    a stuck wizard — abort fast with a useful diagnostic instead of looping.
+    """
+    last_url = None
+    same_url_count = 0
+    for step in range(12):
+        url = s.get(base + "/", allow_redirects=True, timeout=60).url
         log(f"confluence walk {step}: at {url}")
         if "/setup/" not in url:
             log("confluence wizard appears complete")
             return True
-        if url in seen:
-            time.sleep(5)
-        seen.add(url)
+        if url == last_url:
+            same_url_count += 1
+        else:
+            same_url_count = 0
+        last_url = url
 
-        # Re-fetch the current page directly (we have its URL).
-        r = s.get(url, timeout=120)
+        r = s.get(url, timeout=60)
+        if "Oops - an error has occurred" in r.text or "<title>Oops" in r.text:
+            sys.exit(f"error: confluence is in error state at {url} — wizard "
+                     f"corrupted, please reset the volume "
+                     f"(docker compose down confluence && docker volume rm "
+                     f"docker_confluence-data && docker compose up -d confluence)")
         token = extract_atl_token(r.text) or ""
         action_match = re.search(r'<form[^>]*action="([^"]+)"', r.text)
         if not action_match:
             log(f"  no form on {url}, body 200 chars: {r.text[:200]!r}")
-            time.sleep(5)
+            if same_url_count >= 1:
+                sys.exit(f"error: confluence stuck at {url} with no submittable form")
+            time.sleep(2)
             continue
         action = html.unescape(action_match.group(1))
         if not action.startswith("http"):
             action = base + "/setup/" + action.lstrip("/")
         log(f"  action -> {action}")
 
-        # Build the right body per known step.
         body = conf_form_body(url, r.text, admin, token)
         log(f"  posting {len(body)} fields: {sorted(body.keys())}")
-        r2 = s.post(action, data=body, allow_redirects=True, timeout=300)
+        r2 = s.post(action, data=body, allow_redirects=True, timeout=180)
         log(f"  -> {r2.status_code} {r2.url}")
         if "/setup/" not in r2.url:
             return True
-        if r2.url == url:
-            # Did not advance; print error hints.
+        if r2.url == url and same_url_count >= 1:
             errs = re.findall(r'class="error[^"]*"[^>]*>([^<]+)', r2.text)
-            log(f"  did not advance; errors: {errs[:5]}")
-            time.sleep(5)
-    sys.exit("error: confluence wizard did not complete after 20 iterations")
+            sys.exit(f"error: confluence loop detected at {url}; "
+                     f"page errors: {errs[:5]}")
+    sys.exit("error: confluence wizard did not complete after 12 iterations")
 
 
 def conf_form_body(url: str, body_html: str, admin: dict, token: str) -> dict:
     u = url.lower()
     base = {"atl_token": token}
     if "setupcluster" in u or "setupchoosecluster" in u:
-        # Standalone, not cluster.
-        return {**base, "clusterSetup": "false", "submit": "Next"}
+        # Standalone, not cluster. Field is `isClusteringEnabled` — value "true"
+        # means standalone (the radio is labeled "clusteringDisabled" but its
+        # form value is "true", because Confluence calls non-clustered "single
+        # node, not part of a cluster" -> isClusteringEnabled=true. Yes, weird).
+        return {**base, "isClusteringEnabled": "true", "submit": "Next"}
     if "setupdb" in u or "selectdatabase" in u or "setupdbtype" in u:
         # DB pre-configured by container env; just continue.
         # Try common field names.
@@ -235,19 +249,21 @@ def conf_form_body(url: str, body_html: str, admin: dict, token: str) -> dict:
         body["setupOption"] = "INSTALL"
         body["submit"] = "Next"
         return body
-    if "setupadminuser" in u or "setupusermanagement" in u:
-        # "Manage users and groups within Confluence" path is default.
-        # If this page just asks Confluence-internal vs JIRA, click "Confluence".
-        body = {**base}
-        body["userManagementChoice"] = "Confluence"
-        body["submit"] = "Next"
-        # Admin form fields:
-        body["fullName"]      = admin["fullname"]
-        body["email"]         = admin["email"]
-        body["username"]      = admin["user"]
-        body["password"]      = admin["pass"]
-        body["confirm"]       = admin["pass"]
-        return body
+    if "setupusermanagementchoice" in u:
+        # Two forms on the page; we want the "internal" one (Confluence-managed
+        # users). The submit button is named `internal` (not `submit`).
+        return {**base, "userManagementChoice": "internal", "internal": "Manage users and groups within Confluence"}
+    if "setupadministrator" in u or "setupadminuser" in u:
+        # Admin account creation page.
+        return {
+            **base,
+            "fullName":  admin["fullname"],
+            "email":     admin["email"],
+            "username":  admin["user"],
+            "password":  admin["pass"],
+            "confirm":   admin["pass"],
+            "submit":    "Next",
+        }
     if "setupfinish" in u or "default.action" in u:
         return {**base, "submit": "Finish"}
     # Default: try to submit whatever submit button is present.
@@ -302,12 +318,14 @@ def bb_run_wizard(s: requests.Session, base: str, admin: dict) -> bool:
         if "/setup" not in r.url and "setup" not in r.url:
             return True
 
-        if step == "user-directory" or "userDirectory" in body or "Internal" in body and step != "settings":
-            data = {"step": "user-directory", "userDirectory": "internal",
-                    "atl_token": token, "submit": "Next"}
-        elif step == "account":
+        # Bitbucket 8.x combines admin creation and Jira-integration choice
+        # on the same page. Detect by the presence of `password` + `skipJira`.
+        has_user_form = ('name="username"' in body and
+                         'name="password"' in body and
+                         'name="confirmPassword"' in body)
+        has_jira_choice = 'name="skipJira"' in body
+        if has_user_form:
             data = {
-                "step":         "account",
                 "username":     admin["user"],
                 "fullname":     admin["fullname"],
                 "displayName":  admin["fullname"],
@@ -316,8 +334,19 @@ def bb_run_wizard(s: requests.Session, base: str, admin: dict) -> bool:
                 "password":     admin["pass"],
                 "confirmPassword": admin["pass"],
                 "atl_token":    token,
-                "submit":       "Submit",
             }
+            if has_jira_choice:
+                data["skipJira"] = "Go to Bitbucket"
+            else:
+                data["submit"] = "Submit"
+            if step:
+                data["step"] = step
+        elif step == "user-directory" or "userDirectory" in body:
+            data = {"step": "user-directory", "userDirectory": "internal",
+                    "atl_token": token, "submit": "Next"}
+        elif has_jira_choice:
+            # Account already created, only the Jira-integration page remains.
+            data = {"skipJira": "Go to Bitbucket", "atl_token": token}
         else:
             # Try a generic submit.
             data = {"step": step or "settings", "atl_token": token, "submit": "Next"}
@@ -424,12 +453,14 @@ def create_pat(s: requests.Session, product: str, base: str, user: str,
                name: str = "skill-test", days: int = 90) -> str:
     headers = {"Content-Type": "application/json", "X-Atlassian-Token": "no-check"}
     if product == "bitbucket":
+        # Bitbucket REST: PUT /rest/access-tokens/latest/users/{userSlug}
         url = f"{base}/rest/access-tokens/latest/users/{user}"
         body = {"name": name, "permissions": ["PROJECT_ADMIN", "REPO_ADMIN"], "expiryDays": days}
+        r = s.put(url, json=body, headers=headers, timeout=60)
     else:
         url = f"{base}/rest/pat/latest/tokens"
         body = {"name": name, "expirationDuration": days}
-    r = s.post(url, json=body, headers=headers, timeout=60)
+        r = s.post(url, json=body, headers=headers, timeout=60)
     log(f"create-pat {product} -> {r.status_code}")
     if r.status_code not in (200, 201):
         sys.exit(f"error: PAT creation failed: {r.status_code} {r.text[:300]!r}")
