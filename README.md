@@ -164,17 +164,64 @@ Splitting per project becomes worthwhile only when a single file gets unwieldy.
 
 ### `docker/docker-compose.yml`
 
-Spins up Jira Software Data Center 9.12 + Postgres on `localhost:8080`. Dev
-loop: `docker compose up -d` → wait for wizard → run setup script (or click
-through manually) → exercise the skill scripts against the live instance.
+Spins up the full Atlassian DC stack on a shared Postgres:
 
-### `dev/get_pat.py`
+| Product | Port | DB | Captcha-Disable JVM Arg (preloaded) |
+|---|---|---|---|
+| Jira Software 9.12 | 8080 | `jiradb` | `-Djira.maximum.authentication.attempts.allowed=99999` |
+| Confluence 8.5 | 8090 | `confluencedb` | `-Dconfluence.security.captcha.threshold=99999` |
+| Bitbucket 8.19 | 7990 / 7999 | `bitbucketdb` | `-Dauth.captcha.threshold=0` |
 
-After you click through each product's first-run wizard manually (60s/product),
-this generic script logs in via username+password and creates a Personal
-Access Token, then writes it into your `instances.json`. Works for jira,
-confluence, and bitbucket — pass the product as the first arg, set the
-relevant `*_PASS` env var:
+The captcha JVM args matter — without them, Jira/Confluence start blocking the
+admin user after a handful of login attempts and the auto-setup runs into
+"username/password incorrect" even when the credentials are correct.
+
+`postgres-init.sh` creates per-product database roles + databases on first
+boot. Drop volumes with `docker compose down -v` to fully reset.
+
+### Auto-Setup Pipeline (`dev/`)
+
+The full bring-up — wizard click-through, license input, admin account, PAT
+creation, `instances.json` write — works **end-to-end without user interaction**
+for all three products. This took some iteration; documenting the moving
+parts so future-you can debug it quickly.
+
+#### `dev/auto_setup.py` — primary entry point
+
+```bash
+python dev/auto_setup.py jira       --base-url http://localhost:8080
+python dev/auto_setup.py confluence --base-url http://localhost:8090
+python dev/auto_setup.py bitbucket  --base-url http://localhost:7990
+```
+
+For each product the script:
+1. Detects whether the wizard is up or already past it (skips if past).
+2. Walks the install wizard via plain HTTP POSTs (no Playwright on the happy
+   path). Each product has its own quirks captured in dedicated functions.
+3. Fetches a 3-hour Time-Bomb license via `dev/fetch_license.py` and feeds it
+   into the right form field (each product names it differently — see below).
+4. Logs in (`/login.jsp` for Jira, `/dologin.action` for Confluence,
+   `/j_atl_security_check` for Bitbucket) and creates a Personal Access Token
+   via the product's REST endpoint.
+5. Writes the token into `instances.json` under `instances.local.<product>`
+   and verifies with a real API call.
+
+Admin credentials default to `admin` / `admin123` and are overridable via
+`JIRA_ADMIN_USER`/`JIRA_ADMIN_PASS` etc. The script never hard-codes a
+specific admin name.
+
+#### `dev/fetch_license.py` — auto-license
+
+Scrapes the public
+[Atlassian Time-Bomb licenses page](https://developer.atlassian.com/platform/marketplace/timebomb-licenses-for-testing-server-apps/)
+and prints (or copies to clipboard with `--copy`) the right key for the
+requested product. Three-hour validity, no Atlassian.com login required.
+
+#### `dev/get_pat.py` — PAT-only mode
+
+Standalone version of step 4–5 above. Use it when a product's wizard was
+already completed (manually in the browser, or via `auto_setup.py` once and
+you only want a fresh token):
 
 ```bash
 JIRA_PASS=secret python dev/get_pat.py jira       --user admin --base-url http://localhost:8080
@@ -182,10 +229,45 @@ CONF_PASS=secret python dev/get_pat.py confluence --user admin --base-url http:/
 BB_PASS=secret   python dev/get_pat.py bitbucket  --user admin --base-url http://localhost:7990
 ```
 
-We tried fully automating the setup wizard (Playwright + raw HTTP). Both
-approaches were brittle: each product renders critical wizard fields via JS,
-applies strict XSRF, and may bounce off Atlassian.com for the license. Manual
-click-through is faster and more reliable than chasing those edge cases.
+Has a basic-auth fallback so it works even if the cookie-based login route
+breaks again on a future Atlassian update.
+
+#### Recording tools — `dev/watch_setup.py` and `dev/watch_pat.py`
+
+If Atlassian changes the wizard forms or the PAT UI in a future release,
+these two scripts open a real Chromium window, log in for you, then **record
+every navigation, every POST/PUT body, and full DOM snapshots of every visible
+form** to `dev/watch-logs/` while you click through manually. The captured
+form-action URLs and field names are exactly what `auto_setup.py` /
+`get_pat_browser.py` need to be patched with.
+
+Both scripts also snap session cookies, so they double as a one-shot
+"semi-automatic" setup if `auto_setup.py` fails for a yet-unsupported version.
+
+#### Hard-won lessons (left here so we do not relearn them)
+
+- **Captcha is the silent killer.** Without the JVM args above, Jira blocks
+  the admin user after 3 wrong attempts and the symptom looks like "wrong
+  password" — not "captcha required". Two hours of wizard reverse-engineering
+  before we found this.
+- **Confluence's wizard is state-fragile.** Going back to `base + "/"` after a
+  successful POST sometimes bounces the wizard back to a stale page; the
+  walker must follow `r2.url` (the redirect target the POST landed on)
+  instead. Also, the cluster step needs **all 19 form fields** present even
+  when most are empty (`newCluster=skipCluster` alone does not work).
+- **Field names differ per product.** Jira uses `setupLicenseKey`, Confluence
+  uses `confLicenseString`. Jira admin form has `next=Next`, Confluence
+  has `setup-next-button=Next`. Bitbucket combines the admin form and the
+  Jira-integration choice on a single page (post `skipJira=Go to Bitbucket`).
+- **Bitbucket's PAT REST endpoint is `PUT /rest/access-tokens/latest/users/{slug}`,
+  not POST.**
+- The fully-headless raw-HTTP path was abandoned for the Confluence wizard
+  *once* (because the cluster page kept rejecting our submits) — the recovery
+  recipe was: spin up `dev/watch_setup.py confluence`, click through manually,
+  read the recorded form bodies out of `dev/watch-logs/confluence-*.log`,
+  paste the field names into `auto_setup.py`. The whole thing took ~20 minutes
+  end-to-end and the script has worked unattended on every fresh container
+  reset since.
 
 ### `atlassian-dc-plugin/tests/`
 
