@@ -167,7 +167,7 @@ class BitbucketClient:
             if next_start is None or next_start == start:
                 break
             start = next_start
-        return collected
+        return collected[:limit] if limit is not None else collected
 
 
 def _extract_bb_error(resp: requests.Response) -> str:
