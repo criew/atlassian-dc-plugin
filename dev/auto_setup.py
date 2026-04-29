@@ -518,6 +518,28 @@ def verify_pat(product: str, base: str, user: str, token: str) -> int:
     return r.status_code
 
 
+def bb_seed_default_project(base: str, admin: dict, project_key: str = "TST",
+                            project_name: str = "Test Project") -> bool:
+    """Bitbucket PATs cannot grant project-CREATE permission, so on first
+    setup we seed a default test project via the admin user's basic auth.
+    Idempotent: a 409 (already exists) is treated as success."""
+    url = f"{base}/rest/api/1.0/projects"
+    body = {"key": project_key, "name": project_name,
+            "description": "Default test project seeded by auto_setup.py"}
+    r = requests.post(url, json=body, auth=(admin["user"], admin["pass"]),
+                      headers={"Content-Type": "application/json",
+                               "X-Atlassian-Token": "no-check"},
+                      timeout=30)
+    if r.status_code == 201:
+        log(f"bitbucket seeded default project {project_key} via basic auth")
+        return True
+    if r.status_code == 409:
+        log(f"bitbucket project {project_key} already exists (ok)")
+        return True
+    log(f"bitbucket seed project failed: {r.status_code} {r.text[:200]!r}")
+    return False
+
+
 # --- main -------------------------------------------------------------------
 
 def main() -> None:
@@ -565,6 +587,12 @@ def main() -> None:
     if code != 200:
         log(f"warning: PAT verify returned {code}")
 
+    # Bitbucket-only: PATs cannot grant project-CREATE. Seed a default project
+    # via basic auth so skill scripts have something to operate on.
+    seeded = False
+    if args.product == "bitbucket":
+        seeded = bb_seed_default_project(base, admin)
+
     print(json.dumps({
         "instances_file": str(path),
         "alias":          args.alias,
@@ -574,6 +602,7 @@ def main() -> None:
         "token_length":   len(token),
         "token_preview":  token[:4] + "..." + token[-4:],
         "verify_status":  code,
+        **({"seeded_project": "TST"} if seeded else {}),
     }, indent=2))
 
 
