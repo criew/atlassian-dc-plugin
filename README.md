@@ -1,8 +1,25 @@
-# Atlassian DC Plugin — Design
+# Atlassian DC Plugin
 
-This document captures the architecture of the project, the separation between
-**distributable plugin** and **local development setup**, and the rationale
-behind key design decisions. It is the entry point for understanding the codebase.
+Skills for Jira, Confluence, and Bitbucket Data Center deployments — packaged
+as a single plugin. Multi-instance support via aliased credentials, per-instance
+markdown rules, and CLI scripts that survive being driven by weak LLMs.
+
+This file describes the architecture, the separation between **distributable
+plugin** and **local development setup**, and the rationale behind key design
+decisions. It is the entry point for understanding the codebase.
+
+## Quick Start
+
+For end users (consuming the plugin):
+- See `atlassian-dc-plugin/README.md` for setup of `instances.json` and rules.
+- Pre-built skill scripts run via `uv run` or plain `python`.
+
+For developers (working in this repo):
+- `docker/docker-compose.yml` brings up local Jira / Confluence / Bitbucket DC.
+- `atlassian-dc-plugin/tests/` is the reproducible test suite (`pytest`).
+- The setup helper `setup_jira.py` wraps the wizard but **expects an admin
+  username via `JIRA_ADMIN_USER` env var (default: `admin`)**. Pick anything
+  you like; nothing else in the codebase hard-codes a specific admin name.
 
 ## Three Layers
 
