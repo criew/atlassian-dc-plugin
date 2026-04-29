@@ -4,6 +4,8 @@
   "description": "Skills for Atlassian Data Center products (Jira, Confluence, Bitbucket) with multi-instance support",
   "author": "christoph",
   "skills": [
-    "skills/jira-dc"
+    "skills/jira-dc",
+    "skills/bitbucket-dc",
+    "skills/confluence-dc"
   ]
 }

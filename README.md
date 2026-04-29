@@ -168,14 +168,24 @@ Spins up Jira Software Data Center 9.12 + Postgres on `localhost:8080`. Dev
 loop: `docker compose up -d` → wait for wizard → run setup script (or click
 through manually) → exercise the skill scripts against the live instance.
 
-### `setup_jira.py` (Playwright) and `setup_jira_http.py` (HTTP)
+### `dev/get_pat.py`
 
-Helper scripts to seed the Jira setup wizard for an unattended dev loop.
-Status today: partially working — Jira's wizard has JS-rendered fields and
-strict XSRF that make full automation brittle. Realistic dev workflow is to
-click the wizard once manually (about 60 seconds), then run a small login +
-PAT-creation script (`/tmp/get_pat.py` style). The setup scripts are
-intentionally **not** part of the plugin — they exist for our own dev loop.
+After you click through each product's first-run wizard manually (60s/product),
+this generic script logs in via username+password and creates a Personal
+Access Token, then writes it into your `instances.json`. Works for jira,
+confluence, and bitbucket — pass the product as the first arg, set the
+relevant `*_PASS` env var:
+
+```bash
+JIRA_PASS=secret python dev/get_pat.py jira       --user admin --base-url http://localhost:8080
+CONF_PASS=secret python dev/get_pat.py confluence --user admin --base-url http://localhost:8090
+BB_PASS=secret   python dev/get_pat.py bitbucket  --user admin --base-url http://localhost:7990
+```
+
+We tried fully automating the setup wizard (Playwright + raw HTTP). Both
+approaches were brittle: each product renders critical wizard fields via JS,
+applies strict XSRF, and may bounce off Atlassian.com for the license. Manual
+click-through is faster and more reliable than chasing those edge cases.
 
 ### `atlassian-dc-plugin/tests/`
 
