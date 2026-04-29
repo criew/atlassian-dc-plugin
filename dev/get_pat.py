@@ -79,7 +79,7 @@ def login(s: requests.Session, product: str, base: str, user: str, pw: str) -> N
             "os_destination": "", "user_role": "", "atl_token": "", "login": "Log In",
         }, allow_redirects=True, timeout=60)
     log(f"login {product} -> {r.status_code} {r.url}")
-    if "loginfailed" in r.url or "incorrect" in r.text.lower():
+    if "loginfailed" in r.url or "Sorry, your username and password are incorrect" in r.text:
         sys.exit(f"error: {product} login failed (check user/password)")
 
 
@@ -94,14 +94,20 @@ def verify(s: requests.Session, product: str, base: str, user: str) -> None:
     log(f"verify {product} -> 200 OK")
 
 
-def create_pat(s: requests.Session, product: str, base: str, user: str, name: str, days: int) -> str:
+def create_pat(s: requests.Session, product: str, base: str, user: str, name: str, days: int,
+               basic_auth: tuple[str, str] | None = None) -> str:
     cfg = PRODUCTS[product]
     url = cfg["pat_url"].format(base=base, user=user)
     headers = {"Content-Type": "application/json", "X-Atlassian-Token": "no-check"}
     body = {"name": name, "expirationDuration": days}
     if product == "bitbucket":
         body["permissions"] = cfg["permissions"]
-    r = s.post(url, json=body, headers=headers, timeout=60)
+    auth = basic_auth  # falls back to session cookies if None
+    if product == "bitbucket":
+        # Bitbucket uses PUT
+        r = s.put(url, json=body, headers=headers, auth=auth, timeout=60)
+    else:
+        r = s.post(url, json=body, headers=headers, auth=auth, timeout=60)
     log(f"create-pat {product} -> {r.status_code}")
     if r.status_code not in (200, 201):
         sys.exit(f"error: {product} PAT creation failed: {r.status_code} {r.text[:300]!r}")
@@ -143,9 +149,17 @@ def main():
     s = requests.Session()
     s.headers.update({"User-Agent": "atlassian-dc-get-pat/1.0"})
 
-    login(s, args.product, base, args.user, pw)
-    verify(s, args.product, base, args.user)
-    token = create_pat(s, args.product, base, args.user, args.name, args.days)
+    # Try cookie-based login; if it fails, fall back to basic auth for the PAT call.
+    try:
+        login(s, args.product, base, args.user, pw)
+        verify(s, args.product, base, args.user)
+        token = create_pat(s, args.product, base, args.user, args.name, args.days)
+    except SystemExit:
+        log("cookie login failed; retrying with basic auth on the PAT endpoint")
+        s2 = requests.Session()
+        s2.headers.update({"User-Agent": "atlassian-dc-get-pat/1.0"})
+        token = create_pat(s2, args.product, base, args.user, args.name, args.days,
+                           basic_auth=(args.user, pw))
     if not token:
         sys.exit("error: token missing in API response")
     path = write_instances(args.product, base, args.alias, token)

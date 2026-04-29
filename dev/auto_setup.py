@@ -180,8 +180,12 @@ def conf_walk_until_done(s: requests.Session, base: str, admin: dict) -> bool:
     """
     last_url = None
     same_url_count = 0
+    next_url = base + "/"  # first iteration starts at the wizard root
     for step in range(12):
-        url = s.get(base + "/", allow_redirects=True, timeout=60).url
+        # Follow whatever the previous step pointed us at, NOT base+"/".
+        # Going back to base+"/" can bounce us to a state-stale wizard page.
+        r0 = s.get(next_url, allow_redirects=True, timeout=60)
+        url = r0.url
         log(f"confluence walk {step}: at {url}")
         if "/setup/" not in url:
             log("confluence wizard appears complete")
@@ -192,7 +196,7 @@ def conf_walk_until_done(s: requests.Session, base: str, admin: dict) -> bool:
             same_url_count = 0
         last_url = url
 
-        r = s.get(url, timeout=60)
+        r = r0  # reuse — already fetched
         if "Oops - an error has occurred" in r.text or "<title>Oops" in r.text:
             sys.exit(f"error: confluence is in error state at {url} — wizard "
                      f"corrupted, please reset the volume "
@@ -221,6 +225,8 @@ def conf_walk_until_done(s: requests.Session, base: str, admin: dict) -> bool:
             errs = re.findall(r'class="error[^"]*"[^>]*>([^<]+)', r2.text)
             sys.exit(f"error: confluence loop detected at {url}; "
                      f"page errors: {errs[:5]}")
+        # Continue from where Confluence took us, not the wizard root.
+        next_url = r2.url
     sys.exit("error: confluence wizard did not complete after 12 iterations")
 
 
@@ -228,11 +234,29 @@ def conf_form_body(url: str, body_html: str, admin: dict, token: str) -> dict:
     u = url.lower()
     base = {"atl_token": token}
     if "setupcluster" in u or "setupchoosecluster" in u:
-        # Standalone, not cluster. Field is `isClusteringEnabled` — value "true"
-        # means standalone (the radio is labeled "clusteringDisabled" but its
-        # form value is "true", because Confluence calls non-clustered "single
-        # node, not part of a cluster" -> isClusteringEnabled=true. Yes, weird).
-        return {**base, "isClusteringEnabled": "true", "submit": "Next"}
+        # Standalone (skip cluster). Recorded fields from the actual form:
+        # newCluster=skipCluster + a bunch of empties Confluence still expects.
+        return {
+            **base,
+            "clusterName":             "",
+            "clusterHome":             "",
+            "networkInterface":        "eth0",
+            "joinMethod":              "multicast",
+            "generateClusterAddress":  "auto",
+            "generateClusterAddressSubmitted": "submitted",
+            "clusterAddressString":    "",
+            "clusterPeersString":      "",
+            "awsAuthMethod":           "iamrole",
+            "iamRole":                 "",
+            "accessKey":               "",
+            "secretKey":               "",
+            "region":                  "",
+            "hostHeader":              "",
+            "securityGroupName":       "",
+            "tagKey":                  "",
+            "tagValue":                "",
+            "newCluster":              "skipCluster",
+        }
     if "setupdb" in u or "selectdatabase" in u or "setupdbtype" in u:
         # DB pre-configured by container env; just continue.
         # Try common field names.
@@ -243,26 +267,25 @@ def conf_form_body(url: str, body_html: str, admin: dict, token: str) -> dict:
             body[m.group(1)] = m.group(2) or "Next"
         return body
     if "setupload" in u or "loaddata" in u or "setupstart" in u or "selectsetupstep" in u:
-        # "Empty install" page — pick "install" / "Empty Site".
-        body = {**base}
-        # Look for radio with name="setupOption" and click the "blank" one.
-        body["setupOption"] = "INSTALL"
-        body["submit"] = "Next"
+        body = {**base, "setupOption": "INSTALL", "submit": "Next"}
         return body
+    if "finishsetup" in u:
+        # Last step — usually a 0-button auto-redirect. Just GET it.
+        return {**base, "submit": "Finish"}
     if "setupusermanagementchoice" in u:
-        # Two forms on the page; we want the "internal" one (Confluence-managed
-        # users). The submit button is named `internal` (not `submit`).
-        return {**base, "userManagementChoice": "internal", "internal": "Manage users and groups within Confluence"}
+        # Two forms on the page; we want the "internal" one. Submit button name = "internal".
+        return {**base, "userManagementChoice": "internal",
+                "internal": "Manage users and groups within Confluence"}
     if "setupadministrator" in u or "setupadminuser" in u:
-        # Admin account creation page.
+        # Admin account creation page. Submit button is `setup-next-button` (recorded).
         return {
             **base,
+            "username":  admin["user"],
             "fullName":  admin["fullname"],
             "email":     admin["email"],
-            "username":  admin["user"],
             "password":  admin["pass"],
             "confirm":   admin["pass"],
-            "submit":    "Next",
+            "setup-next-button": "Next",
         }
     if "setupfinish" in u or "default.action" in u:
         return {**base, "submit": "Finish"}

@@ -34,6 +34,8 @@ services:
       ATL_PROXY_NAME: localhost
       ATL_PROXY_PORT: "8080"
       ATL_TOMCAT_SCHEME: http
+      # Disable login captcha (default kicks in after 3 failed attempts).
+      JVM_SUPPORT_RECOMMENDED_ARGS: "-Djira.maximum.authentication.attempts.allowed=99999"
     ports:
       - "8080:8080"
     volumes:
@@ -57,6 +59,8 @@ services:
       ATL_PROXY_NAME: localhost
       ATL_PROXY_PORT: "8090"
       ATL_TOMCAT_SCHEME: http
+      # Disable login captcha entirely (Confluence + Bitbucket use these).
+      JVM_SUPPORT_RECOMMENDED_ARGS: "-Datlassian.recovery.password.disable.captcha=true -Dconfluence.security.captcha.threshold=99999"
     ports:
       - "8090:8090"
     volumes:
@@ -80,6 +84,7 @@ services:
       SERVER_PROXY_NAME: localhost
       SERVER_PROXY_PORT: "7990"
       SERVER_SCHEME: http
+      JVM_SUPPORT_RECOMMENDED_ARGS: "-Dauth.captcha.threshold=0"
     ports:
       - "7990:7990"
       - "7999:7999"   # SSH

@@ -1,0 +1,821 @@
+[2026-04-29T19:51:53] NAV http://localhost:8080/login.jsp
+[2026-04-29T19:51:56] POST http://localhost:8080/rest/wrm/2.0/resources
+   body: '{"require":["wrc!browser-metrics-plugin.contrib"],"interaction":[],"exclude":["wr!com.atlassian.plugins.atlassian-plugins-webresource-rest:data-collector-perf-observer","wr!jira.webresources:resource-phase-checkpoint-init","wrc!_super","wrc!atl.general","wrc!jira.global","wrc!jira.login","wrc!jira.global.look-and-feel","wr!jira.webresources:captcha"]}'
+[2026-04-29T19:51:56] --- DOM SNAPSHOT [jira-login] @ http://localhost:8080/login.jsp ---
+{
+  "forms": [
+    {
+      "action": "http://localhost:8080/secure/QuickSearch.jspa",
+      "method": "get",
+      "id": "quicksearch",
+      "name": null,
+      "fields": [
+        {
+          "tag": "input",
+          "type": "text",
+          "name": "searchString",
+          "id": "quickSearchInput",
+          "placeholder": "Search",
+          "aria-label": null,
+          "value": null,
+          "visible": true
+        },
+        {
+          "tag": "input",
+          "type": "submit",
+          "name": null,
+          "id": null,
+          "placeholder": null,
+          "aria-label": null,
+          "value": "Search",
+          "visible": false
+        }
+      ]
+    },
+    {
+      "action": "http://localhost:8080/login.jsp",
+      "method": "post",
+      "id": "login-form",
+      "name": null,
+      "fields": [
+        {
+          "tag": "input",
+          "type": "text",
+          "name": "os_username",
+          "id": "login-form-username",
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": true
+        },
+        {
+          "tag": "input",
+          "type": "password",
+          "name": "os_password",
+          "id": "login-form-password",
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": true
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "os_cookie",
+          "id": "login-form-remember-me",
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": true
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "os_destination",
+          "id": null,
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": false
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "user_role",
+          "id": null,
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": false
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "atl_token",
+          "id": null,
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": false
+        },
+        {
+          "tag": "button",
+          "type": "submit",
+          "name": "login",
+          "id": "login-form-submit",
+          "placeholder": null,
+          "aria-label": null,
+          "value": "Log In",
+          "visible": true
+        }
+      ]
+    }
+  ],
+  "top_buttons": [
+    {
+      "tag": "button",
+      "text": "Log In",
+      "id": "login-form-submit",
+      "classes": "aui-button aui-button-primary"
+    },
+    {
+      "tag": "a",
+      "text": "Can't access your account?",
+      "id": "login-form-cancel",
+      "classes": "aui-button aui-button-link cancel"
+    }
+  ]
+}
+[2026-04-29T19:51:56] POST http://localhost:8080/rest/wrm/2.0/resources
+   body: '{"require":["wr!com.atlassian.plugin.automation.jira-automation-plugin:manual-trigger-client-resources","wr!com.codebarrel.addons.automation:manual-trigger-client-resources","wrc!com.atlassian.jira.plugins.jira-quicksearch-plugin:5"],"interaction":["wrc!jira.webresources:mentions-feature","wr!com.atlassian.plugins.atlassian-plugins-webresource-rest:data-collector-async"],"exclude":["wr!com.atlassian.plugins.atlassian-plugins-webresource-rest:data-collector-perf-observer","wr!jira.webresources:resource-phase-checkpoint-init","wrc!_super","wrc!atl.general","wrc!jira.global","wrc!jira.login","wrc!jira.global.look-and-feel","wr!jira.webresources:captcha","wrc!browser-metrics-plugin.contrib"]}'
+[2026-04-29T19:51:57] POST http://localhost:8080/login.jsp
+   body: 'os_username=admin&os_password=admin123&os_destination=&user_role=&atl_token=&login=Log+In'
+[2026-04-29T19:51:57] NAV http://localhost:8080/login.jsp
+[2026-04-29T19:51:57] POST http://localhost:8080/rest/wrm/2.0/resources
+   body: '{"require":["wrc!browser-metrics-plugin.contrib"],"interaction":[],"exclude":["wr!com.atlassian.plugins.atlassian-plugins-webresource-rest:data-collector-perf-observer","wr!jira.webresources:resource-phase-checkpoint-init","wrc!_super","wrc!atl.general","wrc!jira.global","wrc!jira.login","wrc!jira.global.look-and-feel","wr!jira.webresources:captcha"]}'
+[2026-04-29T19:51:57] POST http://localhost:8080/rest/wrm/2.0/resources
+   body: '{"require":["wr!com.atlassian.plugin.automation.jira-automation-plugin:manual-trigger-client-resources","wr!com.codebarrel.addons.automation:manual-trigger-client-resources"],"interaction":["wrc!jira.webresources:mentions-feature","wr!com.atlassian.plugins.atlassian-plugins-webresource-rest:data-collector-async"],"exclude":["wr!com.atlassian.plugins.atlassian-plugins-webresource-rest:data-collector-perf-observer","wr!jira.webresources:resource-phase-checkpoint-init","wrc!_super","wrc!atl.general","wrc!jira.global","wrc!jira.login","wrc!jira.global.look-and-feel","wr!jira.webresources:captcha","wrc!browser-metrics-plugin.contrib"]}'
+[2026-04-29T19:51:57] POST http://localhost:8080/rest/wrm/2.0/resources
+   body: '{"require":["wrc!com.atlassian.jira.plugins.jira-quicksearch-plugin:5"],"interaction":[],"exclude":["wr!com.atlassian.plugins.atlassian-plugins-webresource-rest:data-collector-perf-observer","wr!jira.webresources:resource-phase-checkpoint-init","wrc!_super","wrc!atl.general","wrc!jira.global","wrc!jira.login","wrc!jira.global.look-and-feel","wr!jira.webresources:captcha","wrc!browser-metrics-plugin.contrib","wr!com.codebarrel.addons.automation:manual-trigger-client-resources","wrc!jira.webresources:mentions-feature","wr!com.atlassian.plugins.atlassian-plugins-webresource-rest:data-collector-async"]}'
+[2026-04-29T19:51:57] POST http://localhost:8080/rest/analytics/1.0/publish/bulk
+   body: '[{"name":"quicksearch.enabled","properties":{},"timeDelta":-861},{"name":"atst.healthcheck.sensors.page-protocols","properties":{"resourceProtocols":"http/1.1","navigationProtocol":"http/1.1","userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36"},"timeDelta":-856},{"name":"wrm.caching.data.collector","properties":{"SSL":false,"AssetsForeignOrigin":false,"CacheHits":0,"CacheHitSize":0,"CacheMisses":17,"CacheMissedSize":510363,"CacheHitsJs":0,"CacheHitSizeJs":0,"CacheMissesJs":11,"CacheMissedSizeJs":418984,"CacheHitsCss":0,"CacheHitSizeCss":0,"CacheMissesCss":6,"CacheMissedSizeCss":91379},"timeDelta":-723},{"name":"quicksearch.onboarding.tip.notshown","properties":{},"timeDelta":-721},{"name":"quicksearch.enabled","properties":{},"timeDelta":-495},{"name":"wrm.caching.data.collector","properties":{"SSL":false,"AssetsForeignOrigin":false,"CacheHits":3,"CacheHitSize":10197,"CacheMisses":0,"CacheMissedSize":0,"CacheHitsJs":3,"CacheHitSizeJs":10197,"CacheMissesJs":0,"CacheMissedSizeJs":0,"CacheHitsCss":0,"CacheHitSizeCss":0,"CacheMissesCss":0,"CacheMissedSizeCss":0},"timeDelta":-427},{"name":"quicksearch.onboarding.tip.notshown","properties":{},"timeDelta":-393}]'
+[2026-04-29T19:51:58] login posted; waiting for redirect
+[2026-04-29T19:51:58] navigating to PAT page: http://localhost:8080/plugins/servlet/access-tokens/manage/usertokens
+[2026-04-29T19:51:58] NAV http://localhost:8080/login.jsp?os_destination=http%3A%2F%2Flocalhost%3A8080%2Fplugins%2Fservlet
+[2026-04-29T19:51:58] POST http://localhost:8080/rest/wrm/2.0/resources
+   body: '{"require":["wrc!browser-metrics-plugin.contrib"],"interaction":[],"exclude":["wr!com.atlassian.plugins.atlassian-plugins-webresource-rest:data-collector-perf-observer","wr!jira.webresources:resource-phase-checkpoint-init","wrc!_super","wrc!atl.general","wrc!jira.global","wrc!jira.login","wrc!jira.global.look-and-feel","wr!jira.webresources:captcha"]}'
+[2026-04-29T19:51:58] POST http://localhost:8080/rest/wrm/2.0/resources
+   body: '{"require":["wrc!com.atlassian.jira.plugins.jira-quicksearch-plugin:5","wr!com.atlassian.plugin.automation.jira-automation-plugin:manual-trigger-client-resources","wr!com.codebarrel.addons.automation:manual-trigger-client-resources"],"interaction":["wrc!jira.webresources:mentions-feature","wr!com.atlassian.plugins.atlassian-plugins-webresource-rest:data-collector-async"],"exclude":["wr!com.atlassian.plugins.atlassian-plugins-webresource-rest:data-collector-perf-observer","wr!jira.webresources:resource-phase-checkpoint-init","wrc!_super","wrc!atl.general","wrc!jira.global","wrc!jira.login","wrc!jira.global.look-and-feel","wr!jira.webresources:captcha","wrc!browser-metrics-plugin.contrib"]}'
+[2026-04-29T19:51:58] POST http://localhost:8080/rest/analytics/1.0/publish/bulk
+   body: '[{"name":"quicksearch.enabled","properties":{},"timeDelta":-515},{"name":"wrm.caching.data.collector","properties":{"SSL":false,"AssetsForeignOrigin":false,"CacheHits":4,"CacheHitSize":10989,"CacheMisses":0,"CacheMissedSize":0,"CacheHitsJs":4,"CacheHitSizeJs":10989,"CacheMissesJs":0,"CacheMissedSizeJs":0,"CacheHitsCss":0,"CacheHitSizeCss":0,"CacheMissesCss":0,"CacheMissedSizeCss":0},"timeDelta":-428},{"name":"quicksearch.onboarding.tip.notshown","properties":{},"timeDelta":-427}]'
+[2026-04-29T19:51:59] --- DOM SNAPSHOT [pat-landing] @ http://localhost:8080/login.jsp?os_destination=http%3A%2F%2Flocalhost%3A8080%2Fplugins%2Fservlet ---
+{
+  "forms": [
+    {
+      "action": "http://localhost:8080/secure/QuickSearch.jspa",
+      "method": "get",
+      "id": "quicksearch",
+      "name": null,
+      "fields": [
+        {
+          "tag": "input",
+          "type": "text",
+          "name": "searchString",
+          "id": "quickSearchInput",
+          "placeholder": "Search",
+          "aria-label": null,
+          "value": null,
+          "visible": true
+        },
+        {
+          "tag": "input",
+          "type": "submit",
+          "name": null,
+          "id": null,
+          "placeholder": null,
+          "aria-label": null,
+          "value": "Search",
+          "visible": false
+        }
+      ]
+    },
+    {
+      "action": "http://localhost:8080/login.jsp",
+      "method": "post",
+      "id": "login-form",
+      "name": null,
+      "fields": [
+        {
+          "tag": "input",
+          "type": "text",
+          "name": "os_username",
+          "id": "login-form-username",
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": true
+        },
+        {
+          "tag": "input",
+          "type": "password",
+          "name": "os_password",
+          "id": "login-form-password",
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": true
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "os_cookie",
+          "id": "login-form-remember-me",
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": true
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "os_destination",
+          "id": null,
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": false
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "user_role",
+          "id": null,
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": false
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "atl_token",
+          "id": null,
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": false
+        },
+        {
+          "tag": "button",
+          "type": "submit",
+          "name": "login",
+          "id": "login-form-submit",
+          "placeholder": null,
+          "aria-label": null,
+          "value": "Log In",
+          "visible": true
+        }
+      ]
+    }
+  ],
+  "top_buttons": [
+    {
+      "tag": "button",
+      "text": "Log In",
+      "id": "login-form-submit",
+      "classes": "aui-button aui-button-primary"
+    },
+    {
+      "tag": "a",
+      "text": "Can't access your account?",
+      "id": "login-form-cancel",
+      "classes": "aui-button aui-button-link cancel"
+    }
+  ]
+}
+[2026-04-29T19:51:59] --- DOM SNAPSHOT [poll-1777485119] @ http://localhost:8080/login.jsp?os_destination=http%3A%2F%2Flocalhost%3A8080%2Fplugins%2Fservlet ---
+{
+  "forms": [
+    {
+      "action": "http://localhost:8080/secure/QuickSearch.jspa",
+      "method": "get",
+      "id": "quicksearch",
+      "name": null,
+      "fields": [
+        {
+          "tag": "input",
+          "type": "text",
+          "name": "searchString",
+          "id": "quickSearchInput",
+          "placeholder": "Search",
+          "aria-label": null,
+          "value": null,
+          "visible": true
+        },
+        {
+          "tag": "input",
+          "type": "submit",
+          "name": null,
+          "id": null,
+          "placeholder": null,
+          "aria-label": null,
+          "value": "Search",
+          "visible": false
+        }
+      ]
+    },
+    {
+      "action": "http://localhost:8080/login.jsp",
+      "method": "post",
+      "id": "login-form",
+      "name": null,
+      "fields": [
+        {
+          "tag": "input",
+          "type": "text",
+          "name": "os_username",
+          "id": "login-form-username",
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": true
+        },
+        {
+          "tag": "input",
+          "type": "password",
+          "name": "os_password",
+          "id": "login-form-password",
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": true
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "os_cookie",
+          "id": "login-form-remember-me",
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": true
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "os_destination",
+          "id": null,
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": false
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "user_role",
+          "id": null,
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": false
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "atl_token",
+          "id": null,
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": false
+        },
+        {
+          "tag": "button",
+          "type": "submit",
+          "name": "login",
+          "id": "login-form-submit",
+          "placeholder": null,
+          "aria-label": null,
+          "value": "Log In",
+          "visible": true
+        }
+      ]
+    }
+  ],
+  "top_buttons": [
+    {
+      "tag": "button",
+      "text": "Log In",
+      "id": "login-form-submit",
+      "classes": "aui-button aui-button-primary"
+    },
+    {
+      "tag": "a",
+      "text": "Can't access your account?",
+      "id": "login-form-cancel",
+      "classes": "aui-button aui-button-link cancel"
+    }
+  ]
+}
+[2026-04-29T19:52:03] POST http://localhost:8080/rest/wrm/2.0/resources
+   body: '{"require":[],"interaction":["wrc!jira.webresources:header-dimensions"],"exclude":["wr!com.atlassian.plugins.atlassian-plugins-webresource-rest:data-collector-perf-observer","wr!jira.webresources:resource-phase-checkpoint-init","wrc!_super","wrc!atl.general","wrc!jira.global","wrc!jira.login","wrc!jira.global.look-and-feel","wr!jira.webresources:captcha","wrc!browser-metrics-plugin.contrib","wrc!com.atlassian.jira.plugins.jira-quicksearch-plugin:5","wr!com.codebarrel.addons.automation:manual-trigger-client-resources","wrc!jira.webresources:mentions-feature","wr!com.atlassian.plugins.atlassian-plugins-webresource-rest:data-collector-async"]}'
+[2026-04-29T19:52:08] --- DOM SNAPSHOT [poll-1777485128] @ http://localhost:8080/login.jsp?os_destination=http%3A%2F%2Flocalhost%3A8080%2Fplugins%2Fservlet ---
+{
+  "forms": [
+    {
+      "action": "http://localhost:8080/secure/QuickSearch.jspa",
+      "method": "get",
+      "id": "quicksearch",
+      "name": null,
+      "fields": [
+        {
+          "tag": "input",
+          "type": "text",
+          "name": "searchString",
+          "id": "quickSearchInput",
+          "placeholder": "Search",
+          "aria-label": null,
+          "value": null,
+          "visible": true
+        },
+        {
+          "tag": "input",
+          "type": "submit",
+          "name": null,
+          "id": null,
+          "placeholder": null,
+          "aria-label": null,
+          "value": "Search",
+          "visible": false
+        }
+      ]
+    },
+    {
+      "action": "http://localhost:8080/login.jsp",
+      "method": "post",
+      "id": "login-form",
+      "name": null,
+      "fields": [
+        {
+          "tag": "input",
+          "type": "text",
+          "name": "os_username",
+          "id": "login-form-username",
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": true
+        },
+        {
+          "tag": "input",
+          "type": "password",
+          "name": "os_password",
+          "id": "login-form-password",
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": true
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "os_cookie",
+          "id": "login-form-remember-me",
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": true
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "os_destination",
+          "id": null,
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": false
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "user_role",
+          "id": null,
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": false
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "atl_token",
+          "id": null,
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": false
+        },
+        {
+          "tag": "button",
+          "type": "submit",
+          "name": "login",
+          "id": "login-form-submit",
+          "placeholder": null,
+          "aria-label": null,
+          "value": "Log In",
+          "visible": true
+        }
+      ]
+    }
+  ],
+  "top_buttons": [
+    {
+      "tag": "button",
+      "text": "Log In",
+      "id": "login-form-submit",
+      "classes": "aui-button aui-button-primary"
+    },
+    {
+      "tag": "a",
+      "text": "Can't access your account?",
+      "id": "login-form-cancel",
+      "classes": "aui-button aui-button-link cancel"
+    }
+  ]
+}
+[2026-04-29T19:52:16] POST http://localhost:8080/login.jsp
+   body: 'os_username=admin&os_password=admin123&os_destination=http%3A%2F%2Flocalhost%3A8080%2Fplugins%2Fservlet&user_role=&atl_token=&login=Log+In'
+[2026-04-29T19:52:16] NAV http://localhost:8080/login.jsp
+[2026-04-29T19:52:16] POST http://localhost:8080/rest/wrm/2.0/resources
+   body: '{"require":["wrc!browser-metrics-plugin.contrib"],"interaction":[],"exclude":["wr!com.atlassian.plugins.atlassian-plugins-webresource-rest:data-collector-perf-observer","wr!jira.webresources:resource-phase-checkpoint-init","wrc!_super","wrc!atl.general","wrc!jira.global","wrc!jira.login","wrc!jira.global.look-and-feel","wr!jira.webresources:captcha"]}'
+[2026-04-29T19:52:16] POST http://localhost:8080/rest/wrm/2.0/resources
+   body: '{"require":["wr!com.atlassian.plugin.automation.jira-automation-plugin:manual-trigger-client-resources","wr!com.codebarrel.addons.automation:manual-trigger-client-resources"],"interaction":["wrc!jira.webresources:mentions-feature","wr!com.atlassian.plugins.atlassian-plugins-webresource-rest:data-collector-async"],"exclude":["wr!com.atlassian.plugins.atlassian-plugins-webresource-rest:data-collector-perf-observer","wr!jira.webresources:resource-phase-checkpoint-init","wrc!_super","wrc!atl.general","wrc!jira.global","wrc!jira.login","wrc!jira.global.look-and-feel","wr!jira.webresources:captcha","wrc!browser-metrics-plugin.contrib"]}'
+[2026-04-29T19:52:16] POST http://localhost:8080/rest/wrm/2.0/resources
+   body: '{"require":["wrc!com.atlassian.jira.plugins.jira-quicksearch-plugin:5"],"interaction":[],"exclude":["wr!com.atlassian.plugins.atlassian-plugins-webresource-rest:data-collector-perf-observer","wr!jira.webresources:resource-phase-checkpoint-init","wrc!_super","wrc!atl.general","wrc!jira.global","wrc!jira.login","wrc!jira.global.look-and-feel","wr!jira.webresources:captcha","wrc!browser-metrics-plugin.contrib","wr!com.codebarrel.addons.automation:manual-trigger-client-resources","wrc!jira.webresources:mentions-feature","wr!com.atlassian.plugins.atlassian-plugins-webresource-rest:data-collector-async"]}'
+[2026-04-29T19:52:16] POST http://localhost:8080/rest/analytics/1.0/publish/bulk
+   body: '[{"name":"quicksearch.enabled","properties":{},"timeDelta":-487},{"name":"wrm.caching.data.collector","properties":{"SSL":false,"AssetsForeignOrigin":false,"CacheHits":13,"CacheHitSize":501372,"CacheMisses":0,"CacheMissedSize":0,"CacheHitsJs":8,"CacheHitSizeJs":410395,"CacheMissesJs":0,"CacheMissedSizeJs":0,"CacheHitsCss":5,"CacheHitSizeCss":90977,"CacheMissesCss":0,"CacheMissedSizeCss":0},"timeDelta":-437},{"name":"quicksearch.onboarding.tip.notshown","properties":{},"timeDelta":-415}]'
+[2026-04-29T19:52:17] url changed -> http://localhost:8080/login.jsp
+[2026-04-29T19:52:17] --- DOM SNAPSHOT [on-1777485137] @ http://localhost:8080/login.jsp ---
+{
+  "forms": [
+    {
+      "action": "http://localhost:8080/secure/QuickSearch.jspa",
+      "method": "get",
+      "id": "quicksearch",
+      "name": null,
+      "fields": [
+        {
+          "tag": "input",
+          "type": "text",
+          "name": "searchString",
+          "id": "quickSearchInput",
+          "placeholder": "Search",
+          "aria-label": null,
+          "value": null,
+          "visible": true
+        },
+        {
+          "tag": "input",
+          "type": "submit",
+          "name": null,
+          "id": null,
+          "placeholder": null,
+          "aria-label": null,
+          "value": "Search",
+          "visible": false
+        }
+      ]
+    },
+    {
+      "action": "http://localhost:8080/login.jsp",
+      "method": "post",
+      "id": "login-form",
+      "name": null,
+      "fields": [
+        {
+          "tag": "input",
+          "type": "text",
+          "name": "os_username",
+          "id": "login-form-username",
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": true
+        },
+        {
+          "tag": "input",
+          "type": "password",
+          "name": "os_password",
+          "id": "login-form-password",
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": true
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "os_cookie",
+          "id": "login-form-remember-me",
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": true
+        },
+        {
+          "tag": "input",
+          "type": "text",
+          "name": "os_captcha",
+          "id": "login-form-os-captcha",
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": true
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "os_destination",
+          "id": null,
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": false
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "user_role",
+          "id": null,
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": false
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "atl_token",
+          "id": null,
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": false
+        },
+        {
+          "tag": "button",
+          "type": "submit",
+          "name": "login",
+          "id": "login-form-submit",
+          "placeholder": null,
+          "aria-label": null,
+          "value": "Log In",
+          "visible": true
+        }
+      ]
+    }
+  ],
+  "top_buttons": [
+    {
+      "tag": "button",
+      "text": "Log In",
+      "id": "login-form-submit",
+      "classes": "aui-button aui-button-primary"
+    },
+    {
+      "tag": "a",
+      "text": "Can't access your account?",
+      "id": "login-form-cancel",
+      "classes": "aui-button aui-button-link cancel"
+    }
+  ]
+}
+[2026-04-29T19:52:21] POST http://localhost:8080/rest/wrm/2.0/resources
+   body: '{"require":[],"interaction":["wrc!jira.webresources:header-dimensions"],"exclude":["wr!com.atlassian.plugins.atlassian-plugins-webresource-rest:data-collector-perf-observer","wr!jira.webresources:resource-phase-checkpoint-init","wrc!_super","wrc!atl.general","wrc!jira.global","wrc!jira.login","wrc!jira.global.look-and-feel","wr!jira.webresources:captcha","wrc!browser-metrics-plugin.contrib","wr!com.codebarrel.addons.automation:manual-trigger-client-resources","wrc!jira.webresources:mentions-feature","wr!com.atlassian.plugins.atlassian-plugins-webresource-rest:data-collector-async","wrc!com.atlassian.jira.plugins.jira-quicksearch-plugin:5"]}'
+[2026-04-29T19:52:24] POST http://localhost:8080/login.jsp
+   body: 'os_username=admin&os_password=admin123&os_captcha=aboited&os_destination=http%3A%2F%2Flocalhost%3A8080%2Fplugins%2Fservlet&user_role=&atl_token=&login=Log+In'
+[2026-04-29T19:52:24] NAV http://localhost:8080/login.jsp
+[2026-04-29T19:52:24] POST http://localhost:8080/rest/wrm/2.0/resources
+   body: '{"require":["wrc!browser-metrics-plugin.contrib"],"interaction":[],"exclude":["wr!com.atlassian.plugins.atlassian-plugins-webresource-rest:data-collector-perf-observer","wr!jira.webresources:resource-phase-checkpoint-init","wrc!_super","wrc!atl.general","wrc!jira.global","wrc!jira.login","wrc!jira.global.look-and-feel","wr!jira.webresources:captcha"]}'
+[2026-04-29T19:52:24] POST http://localhost:8080/rest/wrm/2.0/resources
+   body: '{"require":["wr!com.atlassian.plugin.automation.jira-automation-plugin:manual-trigger-client-resources","wr!com.codebarrel.addons.automation:manual-trigger-client-resources","wrc!com.atlassian.jira.plugins.jira-quicksearch-plugin:5"],"interaction":["wrc!jira.webresources:mentions-feature","wr!com.atlassian.plugins.atlassian-plugins-webresource-rest:data-collector-async"],"exclude":["wr!com.atlassian.plugins.atlassian-plugins-webresource-rest:data-collector-perf-observer","wr!jira.webresources:resource-phase-checkpoint-init","wrc!_super","wrc!atl.general","wrc!jira.global","wrc!jira.login","wrc!jira.global.look-and-feel","wr!jira.webresources:captcha","wrc!browser-metrics-plugin.contrib"]}'
+[2026-04-29T19:52:25] POST http://localhost:8080/rest/analytics/1.0/publish/bulk
+   body: '[{"name":"quicksearch.enabled","properties":{},"timeDelta":-511},{"name":"wrm.caching.data.collector","properties":{"SSL":false,"AssetsForeignOrigin":false,"CacheHits":4,"CacheHitSize":10989,"CacheMisses":0,"CacheMissedSize":0,"CacheHitsJs":4,"CacheHitSizeJs":10989,"CacheMissesJs":0,"CacheMissedSizeJs":0,"CacheHitsCss":0,"CacheHitSizeCss":0,"CacheMissesCss":0,"CacheMissedSizeCss":0},"timeDelta":-451},{"name":"quicksearch.onboarding.tip.notshown","properties":{},"timeDelta":-450}]'
+[2026-04-29T19:52:26] --- DOM SNAPSHOT [poll-1777485146] @ http://localhost:8080/login.jsp ---
+{
+  "forms": [
+    {
+      "action": "http://localhost:8080/secure/QuickSearch.jspa",
+      "method": "get",
+      "id": "quicksearch",
+      "name": null,
+      "fields": [
+        {
+          "tag": "input",
+          "type": "text",
+          "name": "searchString",
+          "id": "quickSearchInput",
+          "placeholder": "Search",
+          "aria-label": null,
+          "value": null,
+          "visible": true
+        },
+        {
+          "tag": "input",
+          "type": "submit",
+          "name": null,
+          "id": null,
+          "placeholder": null,
+          "aria-label": null,
+          "value": "Search",
+          "visible": false
+        }
+      ]
+    },
+    {
+      "action": "http://localhost:8080/login.jsp",
+      "method": "post",
+      "id": "login-form",
+      "name": null,
+      "fields": [
+        {
+          "tag": "input",
+          "type": "text",
+          "name": "os_username",
+          "id": "login-form-username",
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": true
+        },
+        {
+          "tag": "input",
+          "type": "password",
+          "name": "os_password",
+          "id": "login-form-password",
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": true
+        },
+        {
+          "tag": "input",
+          "type": "checkbox",
+          "name": "os_cookie",
+          "id": "login-form-remember-me",
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": true
+        },
+        {
+          "tag": "input",
+          "type": "text",
+          "name": "os_captcha",
+          "id": "login-form-os-captcha",
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": true
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "os_destination",
+          "id": null,
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": false
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "user_role",
+          "id": null,
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": false
+        },
+        {
+          "tag": "input",
+          "type": "hidden",
+          "name": "atl_token",
+          "id": null,
+          "placeholder": null,
+          "aria-label": null,
+          "value": null,
+          "visible": false
+        },
+        {
+          "tag": "button",
+          "type": "submit",
+          "name": "login",
+          "id": "login-form-submit",
+          "placeholder": null,
+          "aria-label": null,
+          "value": "Log In",
+          "visible": true
+        }
+      ]
+    }
+  ],
+  "top_buttons": [
+    {
+      "tag": "button",
+      "text": "Log In",
+      "id": "login-form-submit",
+      "classes": "aui-button aui-button-primary"
+    },
+    {
+      "tag": "a",
+      "text": "Can't access your account?",
+      "id": "login-form-cancel",
+      "classes": "aui-button aui-button-link cancel"
+    }
+  ]
+}
+[2026-04-29T19:52:28] poll error: Page.wait_for_timeout: Target page, context or browser has been closed
