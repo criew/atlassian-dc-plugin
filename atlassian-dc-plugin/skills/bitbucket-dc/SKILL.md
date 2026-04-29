@@ -98,6 +98,37 @@ Subcommands:
 - `whoami` — verify the PAT and show the current user
 - `search QUERY [--limit N]`
 
+### scripts/core/bitbucket_webhook.py
+Webhooks are scoped to a single repository.
+- `list --project KEY --repo SLUG [--limit N]`
+- `get --project KEY --repo SLUG ID`
+- `create --project KEY --repo SLUG --name N --url URL --event repo:refs_changed --event pr:opened [--secret S] [--active true|false]`
+- `update --project KEY --repo SLUG ID --name N --url URL --event ... [--secret] [--active]`
+- `delete --project KEY --repo SLUG ID`
+- `test --project KEY --repo SLUG [--url override]`
+
+Common events: `repo:refs_changed`, `pr:opened`, `pr:merged`, `pr:declined`,
+`pr:comment:added`, `pr:reviewer:approved`.
+
+### scripts/core/bitbucket_permission.py
+Project-level by default; pass `--repo` to scope to a single repository.
+- `list --project KEY [--repo SLUG] [--limit N]`
+- `grant-user --project KEY [--repo SLUG] --user U --permission PROJECT_READ|PROJECT_WRITE|PROJECT_ADMIN`
+  (or `REPO_READ|REPO_WRITE|REPO_ADMIN` when `--repo` is given)
+- `grant-group --project KEY [--repo SLUG] --group G --permission ...`
+- `revoke-user --project KEY [--repo SLUG] --user U`
+- `revoke-group --project KEY [--repo SLUG] --group G`
+
+**Bitbucket PATs cannot grant global admin permissions** (`SYS_ADMIN`,
+`PROJECT_CREATE`). Creating new projects therefore needs basic auth — see
+`dev/auto_setup.py` which seeds a default test project on first install.
+
+### scripts/core/bitbucket_build.py
+Build statuses live on commits, served from a separate API
+(`/rest/build-status/1.0/`).
+- `list COMMIT_SHA [--limit N]`
+- `post COMMIT_SHA --state SUCCESSFUL|INPROGRESS|FAILED|CANCELLED --key MY-CI-42 --name "Build #42" --url https://ci.example/42 [--description …]`
+
 ## When generating code for the user
 
 If the user wants a standalone script (not a one-off call), prefer importing from

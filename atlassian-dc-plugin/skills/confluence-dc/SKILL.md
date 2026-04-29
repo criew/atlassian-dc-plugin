@@ -63,6 +63,10 @@ Subcommands:
 - `delete ID` (moves to trash; pass `--purge` to permanently delete trashed content)
 - `children ID [--limit N]` — direct child pages
 - `ancestors ID` — parent chain
+- `history ID [--limit N]` — list all versions of a page (number, when, author, message)
+- `export ID [--format pdf|word]` — print the export URL. **Confluence DC's
+  export endpoints are servlets, not REST — open the URL in a logged-in
+  browser, or curl with the same session cookies.**
 
 ### scripts/core/confluence_search.py
 - `confluence_search.py "CQL or text" [--limit N] [--start N] [--expand body.storage,version]`
@@ -88,6 +92,14 @@ Subcommands:
 
 Multipart uploads use the documented `X-Atlassian-Token: no-check` header and let
 `requests` pick the multipart boundary itself (no manual `Content-Type`).
+
+### scripts/workflow/confluence_restriction.py
+Page-level read/edit permissions. Operations are `read` or `update`.
+- `get ID` — show current users + groups granted each operation
+- `set ID --operation read|update [--user U ...] [--group G ...]` — replaces the
+  given operation's grants entirely; pass at least one `--user` or `--group`
+- `clear ID [--operation read|update]` — remove restrictions (omit
+  `--operation` to wipe both)
 
 ### scripts/utility/confluence_user.py
 - `whoami` — verify the PAT and show current user

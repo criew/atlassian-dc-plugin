@@ -37,9 +37,10 @@ Run with `uv run <script> <subcommand> [args]` from the plugin root, or directly
 ### scripts/core/jira_issue.py
 Subcommands:
 - `get KEY` — fetch an issue
-- `create --project KEY --type Bug --summary "..." [--description ...] [--priority High] [--assignee NAME] [--label X --label Y]`
-- `update KEY [--summary ...] [--description ...] [--priority ...] [--assignee ...]`
+- `create --project KEY --type Bug --summary "..." [--description ...] [--priority High] [--assignee NAME] [--label X --label Y] [--fix-version V] [--parent KEY]` (`--parent` makes it a Sub-task)
+- `update KEY [--summary ...] [--description ...] [--priority ...] [--assignee ''] [--fix-version V]` (empty `--assignee` unassigns)
 - `delete KEY`
+- `bulk-create --file issues.json` — JSON list `[{"project":"K", "summary":"…", "issuetype":"Bug", "assignee":"alice", "labels":["x"], "fix_versions":["1.0"], "parent":"K-1"}, …]`
 
 ### scripts/core/jira_search.py
 - `jira_search.py "JQL string" [--fields summary,status] [--limit 50]`
@@ -83,6 +84,13 @@ Subcommands:
 - `create --project KEY --name "1.0" [--description ...] [--release-date YYYY-MM-DD]`
 - `release ID [--release-date YYYY-MM-DD]`
 
+### scripts/core/jira_component.py
+- `list --project KEY`
+- `get ID`
+- `create --project KEY --name "Backend" [--description …] [--lead USER] [--assignee-type PROJECT_LEAD|COMPONENT_LEAD|PROJECT_DEFAULT|UNASSIGNED]`
+- `update ID [--name …] [--description …] [--lead …] [--assignee-type …]`
+- `delete ID`
+
 ### scripts/core/jira_agile.py
 Boards: `boards [--project KEY] [--type scrum|kanban]` · `board ID` · `board-issues ID [--jql ...]`
 Sprints: `sprints --board ID [--state future|active|closed]` · `sprint ID` · `sprint-issues ID`
@@ -107,6 +115,17 @@ Epics:  `epic-issues EPICKEY [--jql ...]`
 - `whoami` — verify the PAT and show current user
 - `search QUERY` — find users
 - `create --username U --password P --email E --display-name "..."` (admin)
+- `update --username U [--email …] [--display-name …] [--active true|false]` (admin)
+- `delete --username U` (admin)
+- `assignable [--issue-key KEY | --project KEY] [--query Q] [--limit N]` — users assignable to an issue or in a project
+
+### scripts/utility/jira_group.py
+- `list [--query Q] [--limit N]`
+- `members --name GROUP [--limit N]`
+- `create --name GROUP`
+- `delete --name GROUP`
+- `add-user --name GROUP --user USERNAME`
+- `remove-user --name GROUP --user USERNAME`
 
 ## When generating code for the user
 
