@@ -238,7 +238,7 @@ def main():
     add_common_args(ch)
     ch.set_defaults(func=cmd_children)
 
-    an = sub.add_parser("ancestors", help="list parent chain (root → immediate parent)")
+    an = sub.add_parser("ancestors", help="list parent chain (root -> immediate parent)")
     an.add_argument("id")
     add_common_args(an)
     an.set_defaults(func=cmd_ancestors)
