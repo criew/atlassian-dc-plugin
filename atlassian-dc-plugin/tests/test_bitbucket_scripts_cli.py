@@ -4,13 +4,12 @@ Subprocess-driven, so they exercise the same code paths a weak LLM hits:
 help text, dry-run markers, missing-config clarity, unknown-alias guidance,
 and token-leak prevention.
 """
-from __future__ import annotations
-
 import json
 import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Optional
 
 import pytest
 
@@ -22,8 +21,8 @@ BB_SCRIPTS = PLUGIN_ROOT / "skills" / "bitbucket-dc" / "scripts"
 def bb_runner(isolated_config, write_instances):
     """Run a Bitbucket plugin script in a subprocess with isolated config."""
 
-    def _run(script_relpath: str, *args, instances: dict | None = None,
-             extra_env: dict | None = None, timeout: int = 30):
+    def _run(script_relpath: str, *args, instances: Optional[dict] = None,
+             extra_env: Optional[dict] = None, timeout: int = 30):
         if instances is not None:
             write_instances(instances)
         env = os.environ.copy()
@@ -38,7 +37,7 @@ def bb_runner(isolated_config, write_instances):
         script = BB_SCRIPTS / script_relpath
         return subprocess.run(
             [sys.executable, str(script), *args],
-            capture_output=True, text=True, env=env, timeout=timeout,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, env=env, timeout=timeout,
         )
 
     return _run

@@ -2,7 +2,7 @@
 name = "atlassian-dc-plugin"
 version = "0.1.0"
 description = "Skills for Atlassian Data Center (Jira, Confluence, Bitbucket)"
-requires-python = ">=3.10"
+requires-python = ">=3.6"
 dependencies = [
     "requests>=2.31",
 ]

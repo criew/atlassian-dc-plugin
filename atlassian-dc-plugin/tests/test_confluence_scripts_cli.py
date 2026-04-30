@@ -8,13 +8,12 @@ These tests do NOT require a running Confluence — they exercise:
 
 For HTTP-side correctness see test_confluence_client.py.
 """
-from __future__ import annotations
-
 import json
 import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Optional
 
 import pytest
 
@@ -26,8 +25,8 @@ CONFLUENCE_SCRIPTS = PLUGIN_ROOT / "skills" / "confluence-dc" / "scripts"
 def cf_runner(isolated_config, write_instances):
     """Subprocess runner pinned at the confluence-dc scripts root."""
 
-    def _run(script_relpath: str, *args, instances: dict | None = None,
-             extra_env: dict | None = None, timeout: int = 30):
+    def _run(script_relpath: str, *args, instances: Optional[dict] = None,
+             extra_env: Optional[dict] = None, timeout: int = 30):
         if instances is not None:
             write_instances(instances)
         env = os.environ.copy()
@@ -38,7 +37,7 @@ def cf_runner(isolated_config, write_instances):
         script = CONFLUENCE_SCRIPTS / script_relpath
         return subprocess.run(
             [sys.executable, str(script), *args],
-            capture_output=True, text=True, env=env, timeout=timeout,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, env=env, timeout=timeout,
         )
     return _run
 

@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 """Bitbucket commit operations: list, get."""
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
@@ -60,7 +58,8 @@ def cmd_get(args):
 
 def main():
     p = argparse.ArgumentParser(description="Bitbucket commits")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    sub = p.add_subparsers(dest="cmd")
+    sub.required = True
 
     ls = sub.add_parser("list", help="list commits")
     ls.add_argument("--project", required=True)

@@ -20,8 +20,6 @@ Subcommands:
                  with the actual priority/status/issuetype names this server uses
 """
 
-from __future__ import annotations
-
 import argparse
 import os
 import sys
@@ -230,7 +228,8 @@ def cmd_auto_discover(args):
 
 def main():
     p = argparse.ArgumentParser(description="Server-specific rules")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    sub = p.add_subparsers(dest="cmd")
+    sub.required = True
 
     s = sub.add_parser("show", help="print rules for an instance (optionally a project)")
     s.add_argument("--project", "-p", help="filter to Global + matching project section")

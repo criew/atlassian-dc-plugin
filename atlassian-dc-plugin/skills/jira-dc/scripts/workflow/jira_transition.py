@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Issue workflow transitions: list available, perform transition by name or id."""
 
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
@@ -58,7 +56,8 @@ def cmd_do(args):
 
 def main():
     p = argparse.ArgumentParser(description="Jira workflow transitions")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    sub = p.add_subparsers(dest="cmd")
+    sub.required = True
 
     ls = sub.add_parser("list", help="show available transitions for an issue")
     ls.add_argument("key")

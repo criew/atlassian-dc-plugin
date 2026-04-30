@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Confluence space operations: list, get, create."""
 
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
@@ -65,7 +63,8 @@ def cmd_create(args):
 
 def main():
     p = argparse.ArgumentParser(description="Confluence space operations")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    sub = p.add_subparsers(dest="cmd")
+    sub.required = True
 
     ls = sub.add_parser("list", help="list spaces")
     ls.add_argument("--type", choices=["global", "personal"])

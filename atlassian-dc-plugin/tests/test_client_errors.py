@@ -1,6 +1,4 @@
 """HTTP error mapping in JiraClient — clear error messages, right exception type."""
-from __future__ import annotations
-
 import pytest
 import responses
 

@@ -8,12 +8,10 @@ Re-uses the generic config loader, error types, and output helpers from
 `_common.py` — those stay product-agnostic.
 """
 
-from __future__ import annotations
-
 import argparse
 import json
 import sys
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 import requests
 
@@ -111,12 +109,12 @@ def get_confluence(args: argparse.Namespace) -> ConfluenceClient:
 
 
 def paginate(client: ConfluenceClient, path: str, params: Optional[dict] = None,
-             limit: int = 50, page_size: int = 50) -> list[dict]:
+             limit: int = 50, page_size: int = 50) -> List[dict]:
     """Walk `_links.next` pages up to `limit` results.
 
     Yields the merged `results` list. Used by spaces/search/comments/labels.
     """
-    collected: list[dict] = []
+    collected = []
     params = dict(params or {})
     params.setdefault("start", 0)
     params["limit"] = min(page_size, limit)

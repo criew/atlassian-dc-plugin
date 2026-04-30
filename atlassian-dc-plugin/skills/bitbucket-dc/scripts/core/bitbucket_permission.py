@@ -6,8 +6,6 @@ Permission strings:
   Repo:     REPO_READ,    REPO_WRITE,    REPO_ADMIN
 """
 
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
@@ -119,7 +117,8 @@ def cmd_revoke_group(args):
 def main():
     p = argparse.ArgumentParser(
         description="Bitbucket permissions (project-level by default; pass --repo to scope to a repo)")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    sub = p.add_subparsers(dest="cmd")
+    sub.required = True
 
     def scope_args(parser):
         parser.add_argument("--project", required=True)

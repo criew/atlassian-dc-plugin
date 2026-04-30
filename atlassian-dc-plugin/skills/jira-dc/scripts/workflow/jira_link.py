@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """Issue links — between issues (blocks/relates/etc.) and to epics."""
 
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
+from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "shared"))
 
@@ -20,7 +19,7 @@ from _common import (  # noqa: E402
 DEFAULT_EPIC_FIELD = "customfield_10008"
 
 
-def _resolve_epic_field(client, override: str | None) -> str:
+def _resolve_epic_field(client, override: Optional[str]) -> str:
     if override:
         return override
     try:
@@ -115,7 +114,8 @@ def cmd_unlink_epic(args):
 
 def main():
     p = argparse.ArgumentParser(description="Jira issue links")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    sub = p.add_subparsers(dest="cmd")
+    sub.required = True
 
     t = sub.add_parser("types", help="list available link types")
     add_common_args(t)

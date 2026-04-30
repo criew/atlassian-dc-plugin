@@ -20,13 +20,12 @@ Usage:
 Defaults: alias=local, token name=skill-test, expiration 90 days.
 """
 
-from __future__ import annotations
-
 import argparse
 import json
 import os
 import sys
 from pathlib import Path
+from typing import Optional, Tuple
 
 import requests
 
@@ -95,7 +94,7 @@ def verify(s: requests.Session, product: str, base: str, user: str) -> None:
 
 
 def create_pat(s: requests.Session, product: str, base: str, user: str, name: str, days: int,
-               basic_auth: tuple[str, str] | None = None) -> str:
+               basic_auth: Optional[Tuple[str, str]] = None) -> str:
     cfg = PRODUCTS[product]
     url = cfg["pat_url"].format(base=base, user=user)
     headers = {"Content-Type": "application/json", "X-Atlassian-Token": "no-check"}

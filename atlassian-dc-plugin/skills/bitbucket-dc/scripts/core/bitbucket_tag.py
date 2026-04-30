@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 """Bitbucket tag operations: list, create, delete."""
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
@@ -68,7 +66,8 @@ def cmd_delete(args):
 
 def main():
     p = argparse.ArgumentParser(description="Bitbucket tags")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    sub = p.add_subparsers(dest="cmd")
+    sub.required = True
 
     ls = sub.add_parser("list", help="list tags")
     ls.add_argument("--project", required=True)

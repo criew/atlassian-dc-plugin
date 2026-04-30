@@ -4,8 +4,6 @@ Mirrors test_client_errors.py for JiraClient. Bitbucket's error envelope is
 ``{"errors": [{"message": "...", "context": "..."}]}`` so the assertions
 focus on extracting that and never leaking the PAT.
 """
-from __future__ import annotations
-
 import pytest
 import responses
 

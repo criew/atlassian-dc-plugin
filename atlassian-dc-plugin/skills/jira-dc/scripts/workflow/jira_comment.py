@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Issue comments: list, add."""
 
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
@@ -44,7 +42,8 @@ def cmd_add(args):
 
 def main():
     p = argparse.ArgumentParser(description="Jira issue comments")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    sub = p.add_subparsers(dest="cmd")
+    sub.required = True
 
     ls = sub.add_parser("list", help="list comments on an issue")
     ls.add_argument("key")

@@ -29,13 +29,12 @@ Special behaviour:
     is JS-rendered, so we POST directly to /secure/SetupLicense.jspa.
 """
 
-from __future__ import annotations
-
 import argparse
 import html
 import json
 import os
 import re
+from typing import Optional
 import subprocess
 import sys
 import time
@@ -89,7 +88,7 @@ ATL_TOKEN_RE  = re.compile(r'name=["\']atl_token["\']\s+value=["\']([^"\']+)["\'
 ATL_TOKEN_RE2 = re.compile(r'name=["\']atl_token["\'][^>]*value=["\']([^"\']+)["\']')
 
 
-def extract_atl_token(text: str) -> str | None:
+def extract_atl_token(text: str) -> Optional[str]:
     for r in (ATL_TOKEN_RE, ATL_TOKEN_RE2):
         m = r.search(text)
         if m:

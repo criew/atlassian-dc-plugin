@@ -5,11 +5,10 @@ Restrictions limit who can read or edit a page. Two operations: `read` and
 `update`. Each can be granted to specific users and/or groups.
 """
 
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
+from typing import List
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "shared"))
 
@@ -40,7 +39,7 @@ def cmd_get(args):
     emit(data, args, human="\n".join(out) or f"no restrictions on {args.id}")
 
 
-def _build_payload(operation: str, users: list[str], groups: list[str]) -> list[dict]:
+def _build_payload(operation: str, users: List[str], groups: List[str]) -> List[dict]:
     return [{
         "operation": operation,
         "restrictions": {
@@ -92,7 +91,8 @@ def cmd_clear(args):
 
 def main():
     p = argparse.ArgumentParser(description="Confluence page restrictions")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    sub = p.add_subparsers(dest="cmd")
+    sub.required = True
 
     g = sub.add_parser("get", help="show restrictions on a page")
     g.add_argument("id", help="page id")

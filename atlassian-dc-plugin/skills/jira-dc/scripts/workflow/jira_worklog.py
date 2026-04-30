@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Issue worklogs: list, add, update, delete."""
 
-from __future__ import annotations
-
 import argparse
 import re
 import sys
@@ -110,7 +108,8 @@ def cmd_delete(args):
 
 def main():
     p = argparse.ArgumentParser(description="Jira issue worklogs")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    sub = p.add_subparsers(dest="cmd")
+    sub.required = True
 
     ls = sub.add_parser("list", help="list worklogs of an issue")
     ls.add_argument("key")

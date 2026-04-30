@@ -1,10 +1,9 @@
 """Shared pytest fixtures for the test suite."""
-from __future__ import annotations
-
 import json
 import os
 import sys
 from pathlib import Path
+from typing import Optional
 
 import pytest
 
@@ -77,8 +76,8 @@ def script_runner(isolated_config, write_instances):
     """
     import subprocess
 
-    def _run(script_relpath: str, *args, instances: dict | None = None,
-             extra_env: dict | None = None, timeout: int = 30):
+    def _run(script_relpath: str, *args, instances: Optional[dict] = None,
+             extra_env: Optional[dict] = None, timeout: int = 30):
         if instances is not None:
             write_instances(instances)
         env = os.environ.copy()
@@ -89,6 +88,6 @@ def script_runner(isolated_config, write_instances):
         script = _resolve_script_path(script_relpath)
         return subprocess.run(
             [sys.executable, str(script), *args],
-            capture_output=True, text=True, env=env, timeout=timeout,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, env=env, timeout=timeout,
         )
     return _run

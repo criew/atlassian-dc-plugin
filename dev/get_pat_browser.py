@@ -14,8 +14,6 @@ Usage:
     BB_PASS=admin123   python dev/get_pat_browser.py bitbucket  --user admin --base-url http://localhost:7990
 """
 
-from __future__ import annotations
-
 import argparse
 import json
 import os
@@ -99,7 +97,7 @@ def create_pat_jira_confluence(page, base, name="skill-test"):
     page.wait_for_timeout(1500)
 
     # The token appears in a code/input element on the success view.
-    candidates: list[str] = []
+    candidates = []
     for sel in ["input[readonly]", "code", "pre", "textarea[readonly]"]:
         for el in page.locator(sel).all():
             try:
@@ -144,7 +142,7 @@ def create_pat_bitbucket(page, base, name="skill-test"):
     page.wait_for_load_state("networkidle", timeout=30000)
     page.wait_for_timeout(1500)
 
-    candidates: list[str] = []
+    candidates = []
     for sel in ["input[readonly]", "code", "pre"]:
         for el in page.locator(sel).all():
             try:

@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Jira issue CRUD: get, create, update, delete."""
 
-from __future__ import annotations
-
 import argparse
 import json
 import sys
@@ -174,7 +172,8 @@ def cmd_bulk_create(args):
 
 def main():
     p = argparse.ArgumentParser(description="Jira issue CRUD")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    sub = p.add_subparsers(dest="cmd")
+    sub.required = True
 
     g = sub.add_parser("get", help="fetch an issue")
     g.add_argument("key")

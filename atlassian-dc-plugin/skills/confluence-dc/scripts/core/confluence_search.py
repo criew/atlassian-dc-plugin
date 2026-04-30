@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """CQL search with automatic pagination via _links.next."""
 
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
@@ -53,16 +51,16 @@ def main():
 
     client = get_confluence(args)
 
-    collected: list[dict] = []
+    collected = []
     next_path = "content/search"
-    next_params: dict | None = {
+    next_params = {
         "cql": cql,
         "start": args.start,
         "limit": min(args.page_size, args.limit),
     }
     if args.expand:
         next_params["expand"] = args.expand
-    total: int | None = None
+    total = None
 
     while next_path is not None and len(collected) < args.limit:
         if next_params is not None:

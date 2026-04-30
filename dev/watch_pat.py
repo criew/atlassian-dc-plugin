@@ -15,8 +15,6 @@ Usage:
     BB_PASS=admin123   python dev/watch_pat.py bitbucket  --user admin --base-url http://localhost:7990
 """
 
-from __future__ import annotations
-
 import argparse
 import json
 import os
@@ -24,6 +22,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 from playwright.sync_api import sync_playwright
 
@@ -107,7 +106,7 @@ def write_instances(product: str, base: str, alias: str, token: str) -> Path:
     return path
 
 
-def find_token_in_dom(page) -> str | None:
+def find_token_in_dom(page) -> Optional[str]:
     """Return the longest plausible PAT-shaped string visible on the page."""
     try:
         candidates = page.evaluate(

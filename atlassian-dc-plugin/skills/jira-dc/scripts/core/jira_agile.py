@@ -4,8 +4,6 @@
 Uses /rest/agile/1.0 (the Greenhopper-derived API), not /rest/api/2.
 """
 
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
@@ -219,7 +217,8 @@ def cmd_epic_issues(args):
 
 def main():
     p = argparse.ArgumentParser(description="Jira Agile: boards, sprints, epics")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    sub = p.add_subparsers(dest="cmd")
+    sub.required = True
 
     # Boards
     bls = sub.add_parser("boards", help="list boards")

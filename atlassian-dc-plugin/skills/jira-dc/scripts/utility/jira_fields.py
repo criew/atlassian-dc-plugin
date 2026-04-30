@@ -8,11 +8,10 @@ Subcommands:
                                        # required flag and allowed values
 """
 
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
+from typing import List, Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "shared"))
 
@@ -32,7 +31,7 @@ def cmd_list(args):
     emit(fields, args, human="\n".join(lines) + f"\n\n{len(fields)} field(s)")
 
 
-def _flatten_meta_fields(meta_fields: dict) -> list[dict]:
+def _flatten_meta_fields(meta_fields: dict) -> List[dict]:
     """Convert createmeta/editmeta field dict into a flat list."""
     out = []
     for fid, fdef in meta_fields.items():
@@ -70,7 +69,7 @@ def cmd_editmeta(args):
          human=f"editable fields on {args.key} ({len(fields)}):\n" + "\n".join(lines))
 
 
-def _createmeta_v9(client, project: str, type_filter: str | None) -> list[dict]:
+def _createmeta_v9(client, project: str, type_filter: Optional[str]) -> List[dict]:
     """Jira 9.x split endpoint: list issue types per project, then fields per type."""
     types_data = client.get(f"issue/createmeta/{project}/issuetypes")
     types = types_data.get("values", types_data) if isinstance(types_data, dict) else types_data
@@ -157,7 +156,8 @@ def cmd_createmeta(args):
 
 def main():
     p = argparse.ArgumentParser(description="Discover Jira fields")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    sub = p.add_subparsers(dest="cmd")
+    sub.required = True
 
     ls = sub.add_parser("list", help="list all global fields (incl. customfield_*)")
     ls.add_argument("--keyword", help="filter by name/id substring")

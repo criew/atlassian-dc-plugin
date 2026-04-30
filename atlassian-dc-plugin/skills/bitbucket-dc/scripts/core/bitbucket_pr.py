@@ -4,8 +4,6 @@
 Subcommands: list, get, create, update, decline, merge, diff,
 add-comment, list-comments, approve, unapprove.
 """
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
@@ -280,7 +278,8 @@ def _add_pr_locator(p: argparse.ArgumentParser, with_id: bool = True) -> None:
 
 def main():
     p = argparse.ArgumentParser(description="Bitbucket pull requests")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    sub = p.add_subparsers(dest="cmd")
+    sub.required = True
 
     ls = sub.add_parser("list", help="list pull requests")
     _add_pr_locator(ls, with_id=False)

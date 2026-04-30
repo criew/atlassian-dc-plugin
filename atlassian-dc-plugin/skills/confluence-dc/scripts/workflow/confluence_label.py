@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Page labels: list, add, remove."""
 
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
@@ -60,7 +58,8 @@ def cmd_remove(args):
 
 def main():
     p = argparse.ArgumentParser(description="Confluence page labels")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    sub = p.add_subparsers(dest="cmd")
+    sub.required = True
 
     ls = sub.add_parser("list", help="list labels on a page")
     ls.add_argument("id", help="page id")

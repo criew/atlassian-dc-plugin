@@ -3,8 +3,6 @@
 
 Branch create/delete uses /rest/branch-utils/1.0/, NOT /rest/api/1.0/.
 """
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
@@ -87,7 +85,8 @@ def cmd_delete(args):
 
 def main():
     p = argparse.ArgumentParser(description="Bitbucket branches")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    sub = p.add_subparsers(dest="cmd")
+    sub.required = True
 
     ls = sub.add_parser("list", help="list branches")
     ls.add_argument("--project", required=True)

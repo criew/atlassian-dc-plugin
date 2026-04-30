@@ -7,15 +7,12 @@ Provides:
 - Error formatting
 """
 
-from __future__ import annotations
-
 import argparse
 import json
 import os
 import sys
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, List, Optional
 
 import requests
 
@@ -53,17 +50,17 @@ class APIError(SkillError):
 # Instance configuration
 # =============================================================================
 
-@dataclass
 class Instance:
-    alias: str
-    product: str
-    url: str
-    token: str
-    ssl_verify: bool = True
+    def __init__(self, alias, product, url, token, ssl_verify=True):
+        self.alias = alias
+        self.product = product
+        self.url = url
+        self.token = token
+        self.ssl_verify = ssl_verify
 
 
-def _config_paths() -> list[Path]:
-    paths: list[Path] = []
+def _config_paths() -> List[Path]:
+    paths = []
     explicit = os.environ.get("ATLASSIAN_INSTANCES_FILE")
     if explicit:
         paths.append(Path(explicit))
@@ -311,8 +308,8 @@ def run(main_fn):
 # Rules loader (per-instance markdown rules)
 # =============================================================================
 
-def _rules_paths(alias: str) -> list[Path]:
-    paths: list[Path] = []
+def _rules_paths(alias: str) -> List[Path]:
+    paths = []
     explicit_dir = os.environ.get("ATLASSIAN_CONFIG_DIR")
     if explicit_dir:
         paths.append(Path(explicit_dir) / "rules" / f"{alias}.md")
@@ -370,7 +367,7 @@ def load_rules(alias: str, project: Optional[str] = None) -> dict:
 
     # Filter to Global + matching Project section.
     lines = text.splitlines()
-    keep: list[str] = []
+    keep = []
     current_kind: Optional[str] = None  # "global", "project-match", "skip", None
     for line in lines:
         stripped = line.lstrip()

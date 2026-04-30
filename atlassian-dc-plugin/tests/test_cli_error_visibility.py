@@ -4,8 +4,6 @@ These tests use subprocess to call the actual scripts as a weak LLM would,
 then check exit code, stdout, and stderr. The goal: make it impossible for an
 LLM to mistake a failure for a success.
 """
-from __future__ import annotations
-
 import json
 import sys
 

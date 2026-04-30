@@ -9,8 +9,6 @@ Why a separate module? `_common.py` must stay product-agnostic for the
 loaders, but the HTTP client carries product-specific URL conventions
 and error vocabulary, so each product gets its own client.
 """
-from __future__ import annotations
-
 import argparse
 import json
 import sys
@@ -181,7 +179,7 @@ def _extract_bb_error(resp: requests.Response) -> str:
         return resp.text or ""
     if isinstance(data, dict):
         errs = data.get("errors") or []
-        parts: list[str] = []
+        parts = []
         if isinstance(errs, list):
             for e in errs:
                 if isinstance(e, dict):

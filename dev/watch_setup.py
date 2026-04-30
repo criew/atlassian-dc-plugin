@@ -17,8 +17,6 @@ Usage:
     python dev/watch_setup.py bitbucket  --base-url http://localhost:7990
 """
 
-from __future__ import annotations
-
 import argparse
 import json
 import os
@@ -27,6 +25,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
+from typing import Tuple
 from urllib.parse import urlparse
 
 import requests
@@ -50,7 +49,7 @@ def fetch_license_to_clipboard(product: str) -> str:
     """Run dev/fetch_license.py <product> --copy and return the key."""
     proc = subprocess.run(
         [sys.executable, str(REPO_ROOT / "dev" / "fetch_license.py"), product, "--copy"],
-        capture_output=True, text=True, timeout=60,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=60,
     )
     if proc.returncode != 0:
         sys.exit(f"error: fetch_license failed: {proc.stderr}")
@@ -97,7 +96,7 @@ def is_authenticated_url(product: str, url: str) -> bool:
     return False
 
 
-def create_pat_from_cookies(product: str, base: str, user: str, cookies: list) -> tuple[str, int]:
+def create_pat_from_cookies(product: str, base: str, user: str, cookies: list) -> Tuple[str, int]:
     s = requests.Session()
     for c in cookies:
         s.cookies.set(c["name"], c["value"], domain=c["domain"], path=c.get("path", "/"))

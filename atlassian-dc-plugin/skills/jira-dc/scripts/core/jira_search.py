@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """JQL search with automatic pagination."""
 
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
@@ -22,7 +20,7 @@ def main():
     args = p.parse_args()
 
     client = get_jira(args)
-    collected: list[dict] = []
+    collected = []
     start_at = 0
     while len(collected) < args.limit:
         page_size = min(args.page_size, args.limit - len(collected))

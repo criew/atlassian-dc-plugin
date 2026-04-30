@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Jira groups: list, members, create, delete, add-user, remove-user."""
 
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
@@ -99,7 +97,8 @@ def cmd_remove_user(args):
 
 def main():
     p = argparse.ArgumentParser(description="Jira group operations")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    sub = p.add_subparsers(dest="cmd")
+    sub.required = True
 
     ls = sub.add_parser("list", help="search/list groups")
     ls.add_argument("--query", help="filter by name substring")

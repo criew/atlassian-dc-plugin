@@ -1,6 +1,4 @@
 """HTTP error mapping in ConfluenceClient — same shape as JiraClient tests."""
-from __future__ import annotations
-
 import pytest
 import responses
 

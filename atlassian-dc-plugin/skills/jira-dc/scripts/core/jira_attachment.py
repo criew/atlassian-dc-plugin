@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Issue attachments — list, add, get metadata, delete."""
 
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
@@ -100,7 +98,8 @@ def cmd_delete(args):
 
 def main():
     p = argparse.ArgumentParser(description="Jira issue attachments")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    sub = p.add_subparsers(dest="cmd")
+    sub.required = True
 
     ls = sub.add_parser("list", help="list attachments on an issue")
     ls.add_argument("key")

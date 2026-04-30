@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Confluence page CRUD: get, create, update (auto version-bump), delete, children, ancestors."""
 
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
@@ -241,7 +239,8 @@ def cmd_export(args):
 
 def main():
     p = argparse.ArgumentParser(description="Confluence page CRUD")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    sub = p.add_subparsers(dest="cmd")
+    sub.required = True
 
     g = sub.add_parser("get", help="fetch a page by id, or by title+space")
     g.add_argument("--id")

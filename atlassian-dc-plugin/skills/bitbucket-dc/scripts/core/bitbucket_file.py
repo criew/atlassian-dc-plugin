@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 """Bitbucket file operations: get-content, list-dir, search."""
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
@@ -30,7 +28,7 @@ def cmd_get_content(args):
 
     # JSON browse: stitch lines together (handles paginated response)
     path = f"projects/{args.project}/repos/{args.repo}/browse/{args.path}"
-    all_lines: list[str] = []
+    all_lines = []
     start = 0
     page_size = 500
     last_page_meta: dict = {}
@@ -132,7 +130,8 @@ def cmd_search(args):
 
 def main():
     p = argparse.ArgumentParser(description="Bitbucket files & search")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    sub = p.add_subparsers(dest="cmd")
+    sub.required = True
 
     gc = sub.add_parser("get-content", help="get file content")
     gc.add_argument("--project", required=True)

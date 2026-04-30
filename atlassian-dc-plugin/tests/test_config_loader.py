@@ -1,6 +1,4 @@
 """Config loader behaviour — focused on error clarity for weak LLMs."""
-from __future__ import annotations
-
 import json
 import pytest
 

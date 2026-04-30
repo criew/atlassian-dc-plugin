@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 """Bitbucket project operations: list, get, create."""
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
@@ -50,7 +48,8 @@ def cmd_create(args):
 
 def main():
     p = argparse.ArgumentParser(description="Bitbucket projects")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    sub = p.add_subparsers(dest="cmd")
+    sub.required = True
 
     ls = sub.add_parser("list", help="list projects")
     ls.add_argument("--name", help="filter by name substring")

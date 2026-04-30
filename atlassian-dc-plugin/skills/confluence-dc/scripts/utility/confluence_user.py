@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """User helpers: whoami (verify PAT), search."""
 
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
@@ -48,7 +46,8 @@ def cmd_search(args):
 
 def main():
     p = argparse.ArgumentParser(description="Confluence user operations")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    sub = p.add_subparsers(dest="cmd")
+    sub.required = True
 
     w = sub.add_parser("whoami", help="verify PAT, show authenticated user")
     add_common_args(w)

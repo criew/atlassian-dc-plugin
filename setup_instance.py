@@ -22,14 +22,13 @@ Usage:
         --bitbucket-url http://localhost:7990 --bitbucket-user admin --bitbucket-pass admin123
 """
 
-from __future__ import annotations
-
 import argparse
 import getpass
 import json
 import os
 import sys
 from pathlib import Path
+from typing import Optional
 
 import requests
 
@@ -98,7 +97,7 @@ def _save_instances(cfg: dict) -> Path:
 # -----------------------------------------------------------------------------
 
 def _create_pat_via_session(s: requests.Session, product: str, base: str,
-                            user: str, pw: str, name: str, days: int) -> str | None:
+                            user: str, pw: str, name: str, days: int) -> Optional[str]:
     cfg = PRODUCT_LOGIN[product]
     # Login
     r = s.post(cfg["login_url"].format(base=base, user=user),
@@ -114,7 +113,7 @@ def _create_pat_via_session(s: requests.Session, product: str, base: str,
 
 
 def _post_pat(s: requests.Session, product: str, base: str, user: str,
-              name: str, days: int, basic_auth=None) -> str | None:
+              name: str, days: int, basic_auth=None) -> Optional[str]:
     headers = {"Content-Type": "application/json", "X-Atlassian-Token": "no-check"}
     body = {"name": name, "expirationDuration": days}
     if product == "bitbucket":
@@ -166,7 +165,7 @@ def verify_pat(product: str, base: str, user: str, token: str) -> int:
 # Interactive prompts
 # -----------------------------------------------------------------------------
 
-def prompt(question: str, default: str | None = None) -> str:
+def prompt(question: str, default: Optional[str] = None) -> str:
     suffix = f" [{default}]" if default else ""
     while True:
         ans = input(f"{question}{suffix}: ").strip()
@@ -237,7 +236,7 @@ def main() -> None:
         sys.exit("error: no products selected")
 
     # Per-product credentials
-    per_product: dict[str, dict[str, str]] = {}
+    per_product = {}
     for prod in products:
         url = getattr(args, f"{prod}_url")
         user = getattr(args, f"{prod}_user")

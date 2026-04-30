@@ -19,14 +19,13 @@ the OS-native tool when present (`clip` on Windows, `pbcopy` on macOS,
 `xclip` or `xsel` on Linux). Without one available, --copy is a no-op warning.
 """
 
-from __future__ import annotations
-
 import argparse
 import json
 import re
 import shutil
 import subprocess
 import sys
+from typing import List, Optional, Tuple
 
 import requests
 
@@ -59,7 +58,7 @@ def fetch_html(url: str = PAGE_URL, timeout: int = 30) -> str:
     return r.text
 
 
-def extract_licenses_by_section(html: str) -> list[tuple[str, str]]:
+def extract_licenses_by_section(html: str) -> List[Tuple[str, str]]:
     """For every license blob in the HTML, capture a generous preceding text
     window (cleaned of tags) so product matching can find names like
     'Jira Software', 'Confluence', 'Bitbucket' wherever they appear in
@@ -67,7 +66,7 @@ def extract_licenses_by_section(html: str) -> list[tuple[str, str]]:
     """
     cleaned = re.sub(r"<(script|style)\b[^>]*>.*?</\1>", " ", html,
                      flags=re.IGNORECASE | re.DOTALL)
-    out: list[tuple[str, str]] = []
+    out = []
     for m in LICENSE_RE.finditer(cleaned):
         blob = re.sub(r"\s+", "", m.group(0))
         # Collect the 800 chars before this license, strip tags, normalise space.
@@ -79,7 +78,7 @@ def extract_licenses_by_section(html: str) -> list[tuple[str, str]]:
     return out
 
 
-def pick_license(pairs: list[tuple[str, str]], product: str) -> str | None:
+def pick_license(pairs: List[Tuple[str, str]], product: str) -> Optional[str]:
     needles = [n.lower() for n in PRODUCT_HEADINGS[product]]
     for heading, blob in pairs:
         h = heading.lower()
@@ -90,7 +89,7 @@ def pick_license(pairs: list[tuple[str, str]], product: str) -> str | None:
 
 def to_clipboard(text: str) -> bool:
     """Best-effort copy. Returns True on success, False with a warning."""
-    candidates: list[list[str]] = []
+    candidates = []
     if shutil.which("clip"):
         candidates.append(["clip"])
     if shutil.which("pbcopy"):
@@ -101,8 +100,8 @@ def to_clipboard(text: str) -> bool:
         candidates.append(["xsel", "--clipboard", "--input"])
     for cmd in candidates:
         try:
-            p = subprocess.run(cmd, input=text, text=True, timeout=5,
-                               capture_output=True)
+            p = subprocess.run(cmd, input=text, universal_newlines=True, timeout=5,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             if p.returncode == 0:
                 return True
         except Exception:

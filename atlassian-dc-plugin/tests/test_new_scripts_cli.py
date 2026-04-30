@@ -8,8 +8,6 @@ These tests do NOT require a running Jira — they exercise:
 
 For HTTP-side correctness see test_client_errors.py — that path is shared.
 """
-from __future__ import annotations
-
 import json
 import sys
 

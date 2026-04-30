@@ -5,8 +5,6 @@ Covers:
   jira_issue bulk-create, confluence_restriction, confluence_page history+export,
   bitbucket_webhook, bitbucket_permission, bitbucket_build.
 """
-from __future__ import annotations
-
 import json
 import sys
 

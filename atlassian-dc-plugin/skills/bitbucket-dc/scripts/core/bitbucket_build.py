@@ -4,8 +4,6 @@
 Uses the Build Status API (separate base path /rest/build-status/1.0/).
 """
 
-from __future__ import annotations
-
 import argparse
 import sys
 from pathlib import Path
@@ -70,7 +68,8 @@ def cmd_post(args):
 
 def main():
     p = argparse.ArgumentParser(description="Bitbucket build statuses (per-commit)")
-    sub = p.add_subparsers(dest="cmd", required=True)
+    sub = p.add_subparsers(dest="cmd")
+    sub.required = True
 
     ls = sub.add_parser("list", help="list build statuses for a commit")
     ls.add_argument("commit", help="full commit SHA")

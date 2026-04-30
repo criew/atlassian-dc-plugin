@@ -19,14 +19,13 @@ Options:
     --yes       non-interactive (skip confirmation prompt)
 """
 
-from __future__ import annotations
-
 import argparse
 import os
 import platform
 import shutil
 import sys
 from pathlib import Path
+from typing import Optional
 
 REPO_ROOT = Path(__file__).resolve().parent
 PLUGIN_DIR = REPO_ROOT / "atlassian-dc-plugin"
@@ -37,7 +36,7 @@ def _xdg_config_home() -> Path:
     return Path(os.environ.get("XDG_CONFIG_HOME") or (Path.home() / ".config"))
 
 
-def _appdata() -> Path | None:
+def _appdata() -> Optional[Path]:
     a = os.environ.get("APPDATA")
     return Path(a) if a else None
 
@@ -53,7 +52,7 @@ HARNESS_PATHS = {
 }
 
 
-def detect_harness() -> str | None:
+def detect_harness() -> Optional[str]:
     """Best-effort auto-detect."""
     # Honor an explicit env hint first.
     if os.environ.get("ATLASSIAN_DC_HARNESS"):
