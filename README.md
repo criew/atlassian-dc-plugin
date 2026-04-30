@@ -18,9 +18,8 @@ For end users:
 For developers (working in this repo):
 - `docker/docker-compose.yml` brings up local Jira / Confluence / Bitbucket DC.
 - `tests/` is the reproducible test suite (`pytest`).
-- The setup helper `setup_instance.py` wraps the wizard but **expects an admin
-  username via `JIRA_ADMIN_USER` env var (default: `admin`)**. Pick anything
-  you like; nothing else in the codebase hard-codes a specific admin name.
+- `setup_instance.py` asks for URL + PAT per product. For local docker setups,
+  use `--create-pat` to auto-create PATs via login instead.
 
 ## Three Layers
 

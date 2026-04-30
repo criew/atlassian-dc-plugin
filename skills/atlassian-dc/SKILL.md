@@ -61,7 +61,7 @@ helper scripts in the repo root drive this:
 
 ```bash
 python install.py                       # detects Claude/OpenCode/Codex, installs the skills
-python setup_instance.py                # interactive: alias, products, URLs, login → PAT → instances.json
+python setup_instance.py                # interactive: alias, products, URLs, PAT → instances.json
 ```
 
 After that, optional but recommended:
