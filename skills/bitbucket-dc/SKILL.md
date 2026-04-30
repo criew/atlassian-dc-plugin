@@ -82,8 +82,8 @@ Subcommands:
 
 ### scripts/core/bitbucket_pr.py
 Subcommands:
-- `list [--project KEY --repo SLUG] [--state OPEN|MERGED|DECLINED|ALL] [--role AUTHOR|REVIEWER|PARTICIPANT] [--participant-status UNAPPROVED|NEEDS_WORK|APPROVED] [--direction INCOMING|OUTGOING] [--at refs/heads/main] [--limit N]`
-  Without `--project`/`--repo`: lists PRs across all repos where you are involved (dashboard view). With both: lists PRs in a specific repo.
+- `list [--project KEY] [--repo SLUG] [--state OPEN|MERGED|DECLINED|ALL] [--role AUTHOR|REVIEWER|PARTICIPANT] [--participant-status UNAPPROVED|NEEDS_WORK|APPROVED] [--direction INCOMING|OUTGOING] [--at refs/heads/main] [--limit N]`
+  Three modes: (1) no flags → global dashboard, all PRs you're involved in; (2) `--project` only → all PRs across all repos in that project; (3) `--project` + `--repo` → single repo.
 - `get --project KEY --repo SLUG --id PR_ID`
 - `create --project KEY --repo SLUG --title "..." --from-branch SRC --to-branch DST [--description ...] [--reviewer NAME --reviewer NAME]`
 - `update --project KEY --repo SLUG --id PR_ID --version V [--title ...] [--description ...] [--to-branch ...] [--reviewer NAME --reviewer NAME]`

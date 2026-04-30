@@ -65,19 +65,11 @@ def _pr_path(args, suffix: str = "") -> str:
 
 def cmd_list(args):
     client = get_bitbucket(args)
-    global_mode = not args.project
-    if global_mode:
-        params = {"order": args.order}
-        if args.state and args.state != "ALL":
-            params["state"] = args.state
-        if args.role:
-            params["role"] = args.role
-        if args.participant_status:
-            params["participantStatus"] = args.participant_status
-        path = "dashboard/pull-requests"
-    else:
-        if not args.repo:
-            raise ValidationError("--repo is required when --project is specified")
+    show_repo = True
+
+    if args.project and args.repo:
+        # Single repo
+        show_repo = False
         params = {"order": args.order}
         if args.state and args.state != "ALL":
             params["state"] = args.state
@@ -85,15 +77,53 @@ def cmd_list(args):
             params["direction"] = args.direction
         if args.at:
             params["at"] = args.at
-        path = f"projects/{args.project}/repos/{args.repo}/pull-requests"
-    values = client.paginate(path, params=params, limit=args.limit)
+        values = client.paginate(
+            f"projects/{args.project}/repos/{args.repo}/pull-requests",
+            params=params, limit=args.limit,
+        )
+
+    elif args.project:
+        # All repos in one project
+        repos = client.paginate(f"projects/{args.project}/repos", limit=200)
+        params = {}
+        if args.state and args.state != "ALL":
+            params["state"] = args.state
+        if args.direction:
+            params["direction"] = args.direction
+        if args.at:
+            params["at"] = args.at
+        values = []
+        remaining = args.limit
+        for repo in repos:
+            slug = repo.get("slug")
+            if not slug or remaining <= 0:
+                continue
+            prs = client.paginate(
+                f"projects/{args.project}/repos/{slug}/pull-requests",
+                params=params, limit=remaining,
+            )
+            values.extend(prs)
+            remaining = args.limit - len(values)
+
+    else:
+        # Global dashboard
+        params = {"order": args.order}
+        if args.state and args.state != "ALL":
+            params["state"] = args.state
+        if args.role:
+            params["role"] = args.role
+        if args.participant_status:
+            params["participantStatus"] = args.participant_status
+        values = client.paginate("dashboard/pull-requests", params=params, limit=args.limit)
+
+    values = values[:args.limit]
     if args.json:
         emit({"size": len(values), "values": values}, args)
         return
     lines = []
     for pr in values:
         s = _simplify_pr(pr)
-        prefix = f"{s.get('project', '?')}/{s.get('repo', '?')} " if global_mode else ""
+        prefix = f"{s.get('project', '?')}/{s.get('repo', '?')} " if show_repo else ""
         lines.append(f"{prefix}#{s['id']:<5} [{s['state']:<8}] {s['fromRef']} -> {s['toRef']} "
                      f"by {s['author']:<15} {s['title']}")
     emit([_simplify_pr(pr) for pr in values], args,
