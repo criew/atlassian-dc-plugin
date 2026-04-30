@@ -7,6 +7,7 @@ add-comment, list-comments, approve, unapprove.
 import argparse
 import sys
 from pathlib import Path
+from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
@@ -63,12 +64,69 @@ def _pr_path(args, suffix: str = "") -> str:
     return base + (f"/{suffix}" if suffix else "")
 
 
+def _dashboard_params(args):
+    # type: (argparse.Namespace) -> dict
+    params = {}
+    if args.order:
+        params["order"] = args.order
+    if args.state and args.state != "ALL":
+        params["state"] = args.state
+    if getattr(args, "role", None):
+        params["role"] = args.role
+    if getattr(args, "participant_status", None):
+        params["participantStatus"] = args.participant_status
+    return params
+
+
+def _pr_matches_scope(pr, project=None, repo=None):
+    # type: (dict, Optional[str], Optional[str]) -> bool
+    to_ref = pr.get("toRef") or {}
+    to_repo = to_ref.get("repository") or {}
+    to_proj = to_repo.get("project") or {}
+    if project and (to_proj.get("key") or "").upper() != project.upper():
+        return False
+    if repo and (to_repo.get("slug") or "").lower() != repo.lower():
+        return False
+    return True
+
+
+def _dashboard_filtered(client, params, limit, project=None, repo=None):
+    # type: (...) -> list
+    """Paginate dashboard/pull-requests, optionally filtering by project/repo."""
+    if not project and not repo:
+        return client.paginate("dashboard/pull-requests", params=params, limit=limit)
+    collected = []
+    page_params = dict(params)
+    start = 0
+    page_size = 50
+    max_pages = 20
+    for _ in range(max_pages):
+        page_params["start"] = start
+        page_params["limit"] = page_size
+        data = client.get("dashboard/pull-requests", params=page_params)
+        values = data.get("values", []) if isinstance(data, dict) else []
+        if not values:
+            break
+        for pr in values:
+            if _pr_matches_scope(pr, project, repo):
+                collected.append(pr)
+                if len(collected) >= limit:
+                    return collected[:limit]
+        if not isinstance(data, dict) or data.get("isLastPage", True):
+            break
+        next_start = data.get("nextPageStart")
+        if next_start is None or next_start == start:
+            break
+        start = next_start
+    return collected[:limit]
+
+
 def cmd_list(args):
     client = get_bitbucket(args)
     show_repo = True
 
     if args.project and args.repo:
-        # Single repo
+        # Single repo — try repo-scoped endpoint first
         show_repo = False
         params = {}
         if args.order:
@@ -83,44 +141,30 @@ def cmd_list(args):
             f"projects/{args.project}/repos/{args.repo}/pull-requests",
             params=params, limit=args.limit,
         )
+        if not values:
+            # Repo index may be broken — fall back to dashboard with filter
+            if args.debug:
+                import sys as _sys
+                _sys.stderr.write("[debug] repo endpoint returned 0 results, "
+                                  "falling back to dashboard\n")
+            show_repo = True
+            values = _dashboard_filtered(
+                client, _dashboard_params(args), args.limit,
+                project=args.project, repo=args.repo,
+            )
 
     elif args.project:
-        # All repos in one project
-        repos = client.paginate(f"projects/{args.project}/repos", limit=200)
-        params = {}
-        if args.order:
-            params["order"] = args.order
-        if args.state and args.state != "ALL":
-            params["state"] = args.state
-        if args.direction:
-            params["direction"] = args.direction
-        if args.at:
-            params["at"] = args.at
-        values = []
-        remaining = args.limit
-        for repo in repos:
-            slug = repo.get("slug")
-            if not slug or remaining <= 0:
-                continue
-            prs = client.paginate(
-                f"projects/{args.project}/repos/{slug}/pull-requests",
-                params=params, limit=remaining,
-            )
-            values.extend(prs)
-            remaining = args.limit - len(values)
+        # Project-level — use dashboard with project filter
+        values = _dashboard_filtered(
+            client, _dashboard_params(args), args.limit,
+            project=args.project,
+        )
 
     else:
         # Global dashboard
-        params = {}
-        if args.order:
-            params["order"] = args.order
-        if args.state and args.state != "ALL":
-            params["state"] = args.state
-        if args.role:
-            params["role"] = args.role
-        if args.participant_status:
-            params["participantStatus"] = args.participant_status
-        values = client.paginate("dashboard/pull-requests", params=params, limit=args.limit)
+        values = _dashboard_filtered(
+            client, _dashboard_params(args), args.limit,
+        )
 
     values = values[:args.limit]
     if args.json:
