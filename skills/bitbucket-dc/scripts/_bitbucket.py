@@ -59,7 +59,9 @@ class BitbucketClient:
     def _handle(self, resp):
         # type: (requests.Response) -> Any
         if self.debug:
-            sys.stderr.write(f"[debug] -> {resp.status_code}\n")
+            sys.stderr.write(f"[debug] -> {resp.status_code} ({len(resp.content)} bytes)\n")
+            preview = resp.text[:500] if resp.text else "(empty)"
+            sys.stderr.write(f"[debug] body: {preview}\n")
         if resp.status_code == 401:
             raise AuthError("Authentication failed. Check the PAT in instances.json.")
         if resp.status_code == 403:
