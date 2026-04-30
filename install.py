@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Install the Atlassian DC plugin into your agent harness.
+"""Install Atlassian DC skills into your agent harness.
 
-Detects Claude Code / OpenCode / Codex and links (or copies) the plugin into
-the right place. Idempotent — running it again updates the link.
+Detects Claude Code / OpenCode / Codex and links (or copies) each skill
+directory into the right place. Idempotent — running it again updates.
 
 Usage:
     python install.py                       # auto-detect harness, user scope, symlink
@@ -28,8 +28,8 @@ from pathlib import Path
 from typing import Optional
 
 REPO_ROOT = Path(__file__).resolve().parent
-PLUGIN_DIR = REPO_ROOT / "atlassian-dc-plugin"
-PLUGIN_NAME = "atlassian-dc"
+SKILLS_DIR = REPO_ROOT / "skills"
+SKILL_NAMES = ["atlassian-dc", "jira-dc", "bitbucket-dc", "confluence-dc"]
 
 
 def _xdg_config_home() -> Path:
@@ -92,43 +92,38 @@ def resolve_target(args) -> Path:
         base = Path.cwd() / paths["project_dir"]
     else:
         base = paths["user_dir"]
-    return (base / PLUGIN_NAME).resolve()
+    return base.resolve()
 
 
-def install(target: Path, mode: str, force: bool) -> None:
-    target.parent.mkdir(parents=True, exist_ok=True)
+def install_skill(src: Path, dest: Path, mode: str, force: bool) -> None:
+    dest.parent.mkdir(parents=True, exist_ok=True)
 
-    # Existing target? Remove (or skip if pointing at us already).
-    if target.exists() or target.is_symlink():
-        if target.is_symlink():
+    if dest.exists() or dest.is_symlink():
+        if dest.is_symlink():
             try:
-                if Path(os.readlink(target)).resolve() == PLUGIN_DIR:
-                    print(f"[install] already pointing at {PLUGIN_DIR} (no-op)")
+                if Path(os.readlink(dest)).resolve() == src:
+                    print(f"  {dest.name}: already linked (no-op)")
                     return
             except OSError:
                 pass
         if not force:
-            sys.exit(f"error: {target} exists; pass --yes to overwrite")
-        if target.is_dir() and not target.is_symlink():
-            shutil.rmtree(target)
+            sys.exit(f"error: {dest} exists; pass --yes to overwrite")
+        if dest.is_dir() and not dest.is_symlink():
+            shutil.rmtree(dest)
         else:
-            target.unlink()
+            dest.unlink()
 
     if mode == "link":
         try:
-            target.symlink_to(PLUGIN_DIR, target_is_directory=True)
-            print(f"[install] symlink {target} -> {PLUGIN_DIR}")
+            dest.symlink_to(src, target_is_directory=True)
+            print(f"  {dest.name}: symlink -> {src}")
             return
         except (OSError, NotImplementedError) as e:
-            print(f"[install] symlink failed ({e}); falling back to copy")
-    # Copy mode (also fallback)
-    shutil.copytree(PLUGIN_DIR, target,
+            print(f"  {dest.name}: symlink failed ({e}); falling back to copy")
+    shutil.copytree(src, dest,
                     ignore=shutil.ignore_patterns("__pycache__", "*.pyc",
-                                                  ".pytest_cache", "tests"))
-    print(f"[install] copied {PLUGIN_DIR} -> {target}")
-    print("[install] note: future plugin updates won't auto-propagate; "
-          "re-run install.py to refresh, or use --mode link on a system that "
-          "supports symlinks (Linux/macOS or Windows with developer mode).")
+                                                  ".pytest_cache"))
+    print(f"  {dest.name}: copied")
 
 
 def main() -> None:
@@ -144,28 +139,43 @@ def main() -> None:
                    help="overwrite an existing target without prompting")
     args = p.parse_args()
 
-    if not PLUGIN_DIR.exists():
-        sys.exit(f"error: plugin folder missing at {PLUGIN_DIR}")
+    if not SKILLS_DIR.exists():
+        sys.exit(f"error: skills folder missing at {SKILLS_DIR}")
 
     target = resolve_target(args)
-    print(f"[install] plugin source: {PLUGIN_DIR}")
+    print(f"[install] skills source: {SKILLS_DIR}")
     print(f"[install] target:        {target}")
     print(f"[install] mode:          {args.mode}")
-    if not args.yes and target.exists():
-        ans = input(f"target {target} exists — overwrite? [y/N] ").strip().lower()
-        if ans != "y":
-            sys.exit("aborted")
-        force = True
-    else:
-        force = args.yes
 
-    install(target, args.mode, force)
+    force = args.yes
+    if not args.yes:
+        existing = [n for n in SKILL_NAMES if (target / n).exists()]
+        if existing:
+            ans = input(f"skills {existing} already exist in {target} — overwrite? [y/N] ").strip().lower()
+            if ans != "y":
+                sys.exit("aborted")
+            force = True
 
-    # Show next steps.
+    used_copy = False
+    for name in SKILL_NAMES:
+        src = SKILLS_DIR / name
+        if not src.exists():
+            print(f"  {name}: skipped (not found)")
+            continue
+        install_skill(src, target / name, args.mode, force)
+        if (target / name).exists() and not (target / name).is_symlink():
+            used_copy = True
+
+    if used_copy:
+        print()
+        print("[install] note: copied skills won't auto-update; "
+              "re-run install.py to refresh, or use --mode link on a system "
+              "that supports symlinks.")
+
     print()
     print("Next steps:")
     print("  1. python setup_instance.py     # interactive instance + PAT setup")
-    print("  2. (or) copy atlassian-dc-plugin/instances.json.example to")
+    print("  2. (or) copy instances.json.example to")
     print("       ~/.config/atlassian/instances.json (Linux/macOS) or")
     print("       %APPDATA%\\atlassian\\instances.json (Windows) and fill in your PATs.")
     print()

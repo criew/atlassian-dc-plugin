@@ -1,23 +1,24 @@
-# Atlassian DC Plugin
+# Atlassian DC Skills
 
-Skills for Jira, Confluence, and Bitbucket Data Center deployments — packaged
-as a single plugin. Multi-instance support via aliased credentials, per-instance
-markdown rules, and CLI scripts that survive being driven by weak LLMs.
+Skills for Jira, Confluence, and Bitbucket Data Center deployments.
+Multi-instance support via aliased credentials, per-instance markdown rules,
+and CLI scripts that survive being driven by weak LLMs.
 
 This file describes the architecture, the separation between **distributable
-plugin** and **local development setup**, and the rationale behind key design
+skills** and **local development setup**, and the rationale behind key design
 decisions. It is the entry point for understanding the codebase.
 
 ## Quick Start
 
-For end users (consuming the plugin):
-- See `atlassian-dc-plugin/README.md` for setup of `instances.json` and rules.
+For end users:
+- Run `python install.py` to install skills into your agent harness.
+- Run `python setup_instance.py` (or copy `instances.json.example`) to configure credentials.
 - Pre-built skill scripts run via `uv run` or plain `python`.
 
 For developers (working in this repo):
 - `docker/docker-compose.yml` brings up local Jira / Confluence / Bitbucket DC.
-- `atlassian-dc-plugin/tests/` is the reproducible test suite (`pytest`).
-- The setup helper `setup_jira.py` wraps the wizard but **expects an admin
+- `tests/` is the reproducible test suite (`pytest`).
+- The setup helper `setup_instance.py` wraps the wizard but **expects an admin
   username via `JIRA_ADMIN_USER` env var (default: `admin`)**. Pick anything
   you like; nothing else in the codebase hard-codes a specific admin name.
 
@@ -28,10 +29,10 @@ distribution scopes:
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  Layer 1 — PLUGIN (distributed, versioned, shared with users)    │
-│  Path: atlassian-dc-plugin/                                       │
-│  Contains: SKILL.md files, Python scripts, shared library,        │
-│            plugin manifest, README, examples, tests of the code.  │
+│  Layer 1 — SKILLS (distributed, versioned, shared with users)    │
+│  Path: skills/                                                    │
+│  Contains: SKILL.md files, self-contained Python scripts per      │
+│            product (each skill carries its own client + helpers). │
 └──────────────────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────────────┐
@@ -44,49 +45,49 @@ distribution scopes:
 └──────────────────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────────────┐
-│  Layer 3 — DEV-ONLY (this repo, NOT shipped with the plugin)     │
-│  Path: docker/, dev/, atlassian-dc-plugin/tests/                  │
+│  Layer 3 — DEV-ONLY (this repo, NOT shipped with skills)         │
+│  Path: docker/, dev/, tests/                                      │
 │  Contains: docker-compose for the full Jira/Confluence/Bitbucket  │
 │            DC stack, auto-setup pipeline (license fetch + wizard  │
 │            walk + PAT bootstrap), automated tests for the skills. │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-The plugin (Layer 1) is the only thing a user installs. Layer 2 is something
+The skills (Layer 1) are what a user installs. Layer 2 is something
 they hand-author (or generate once via the setup pipeline). Layer 3 only
 exists in this repo — it is the development environment we use to build and
 verify Layer 1 against real Jira / Confluence / Bitbucket instances.
 
-## Layer 1: Plugin Structure
+## Layer 1: Skills Structure
 
 ```
-atlassian-dc-plugin/
-├── .claude-plugin/
-│   └── plugin.json                  # Claude Code plugin manifest (lists all 3 skills)
-├── README.md                        # user-facing setup guide
-├── pyproject.toml                   # uv-runnable, declares deps
-├── instances.json.example           # template for user config
-├── rules.example.md                 # template for per-instance rules
-├── shared/
-│   ├── _common.py                   # config + rules loader, errors, CLI helpers,
-│   │                                # JiraClient
-│   ├── _confluence.py               # ConfluenceClient + paginate() (_links.next)
-│   └── _bitbucket.py                # BitbucketClient + paginate() (isLastPage)
-├── skills/
-│   ├── jira-dc/                     # 16 scripts — issue, search, project,
-│   │                                # version, component, agile, attachment,
-│   │                                # transition, comment, worklog, link,
-│   │                                # watcher, user, group, fields, rules
-│   ├── confluence-dc/               # 8 scripts — space, page (with auto
-│   │                                # version-bump, history, export-url),
-│   │                                # search (CQL), comment, label,
-│   │                                # attachment, restriction, user
-│   └── bitbucket-dc/                # 11 scripts — project, repo, branch,
-│                                    # tag, commit, file (incl. code search),
-│                                    # pr (full lifecycle), webhook,
-│                                    # permission, build (build-status), user
-└── tests/                           # 172 pytest cases across 8 test files
+skills/
+├── atlassian-dc/                    # meta-skill (auto-routing across products)
+├── jira-dc/                         # 16 scripts — issue, search, project,
+│   └── scripts/                     # version, component, agile, attachment,
+│       ├── _common.py               # transition, comment, worklog, link,
+│       ├── _jira.py                 # watcher, user, group, fields, rules
+│       └── core/
+├── confluence-dc/                   # 8 scripts — space, page (with auto
+│   └── scripts/                     # version-bump, history, export-url),
+│       ├── _common.py               # search (CQL), comment, label,
+│       ├── _confluence.py           # attachment, restriction, user
+│       └── core/
+└── bitbucket-dc/                    # 11 scripts — project, repo, branch,
+    └── scripts/                     # tag, commit, file (incl. code search),
+        ├── _common.py               # pr (full lifecycle), webhook,
+        ├── _bitbucket.py            # permission, build (build-status), user
+        └── core/
+
+tests/                               # 172 pytest cases across 9 test files
+instances.json.example               # template for user config
+rules.example.md                     # template for per-instance rules
+pyproject.toml                       # uv-runnable, declares deps
 ```
+
+Each skill is **self-contained**: it carries its own `_common.py` (config loader,
+error classes, CLI helpers) and a product-specific client module (`_jira.py`,
+`_confluence.py`, `_bitbucket.py`). No cross-skill imports.
 
 ### Why three sub-folders inside `scripts/`?
 
@@ -94,21 +95,6 @@ Inspired by `netresearch/jira-skill`. Splitting `core/workflow/utility` reduces
 visual noise inside any one folder and helps the LLM pick the right script by
 intent rather than by flat name. `scripts/core/` is what the LLM reaches for
 first; the others are specializations.
-
-### `shared/` library at the plugin root
-
-All three skills (`jira-dc`, `confluence-dc`, `bitbucket-dc`) share:
-- `_common.py` — generic helpers: instance + rules loader, error classes,
-  argparse helpers, `emit()` / `emit_dry_run()` output helpers, the universal
-  CLI flag block, the `JiraClient` HTTP wrapper.
-- `_confluence.py` — `ConfluenceClient` + `paginate()` helper for `_links.next`.
-- `_bitbucket.py` — `BitbucketClient` + `paginate()` for `start`/`limit` /
-  `isLastPage`.
-
-Each product client class has the same interface (`get`/`post`/`put`/`delete`,
-PAT-only Bearer auth, identical error mapping). Putting clients next to each
-other in `shared/` lets us add a `seed_data.py` or other dev tooling without
-duplicating client code.
 
 ### Why thin SKILL.md?
 
@@ -284,9 +270,9 @@ Both scripts also snap session cookies, so they double as a one-shot
   end-to-end and the script has worked unattended on every fresh container
   reset since.
 
-### `atlassian-dc-plugin/tests/` — 172 reproducible pytest cases
+### `tests/` — 172 reproducible pytest cases
 
-The suite has eight files; **no real Atlassian server is required**, errors are
+The suite has nine files; **no real Atlassian server is required**, errors are
 mocked via `responses`. The conftest's `script_runner` fixture invokes scripts
 as a weak LLM would — via subprocess — so exit codes, stderr text, and
 stdout-vs-stderr separation are all asserted.
@@ -303,9 +289,8 @@ stdout-vs-stderr separation are all asserted.
 | `test_bitbucket_scripts_cli.py` | projects, repos (incl. fork/delete), branches, tags, commits, files (code search), full PR lifecycle, user search |
 | `test_extras_cli.py` | jira components, groups, user update/delete/assignable, bulk-create from JSON; confluence restrictions + history + export-URL; bitbucket webhooks, permissions (project- vs repo-scope), build statuses |
 
-**Tests are NOT shipped with the plugin.** They live inside the plugin
-directory only because pytest's discovery is path-relative; production
-distribution would carry only the runtime files.
+**Tests are NOT shipped with the skills.** `install.py` only copies/links the
+`skills/` directories; `tests/` stays in this repo for development.
 
 ## Key Design Decisions, Recorded
 
@@ -370,28 +355,21 @@ with its own `exit_code`. `run()` catches them, writes a clear `error: ...`
 line to stderr, and exits with the right code. **The token is never in the
 error message.** Tests pin this.
 
-## Distribution Plan
+## Distribution
 
-What gets shipped in the plugin (Layer 1):
-- `atlassian-dc-plugin/.claude-plugin/plugin.json`
-- `atlassian-dc-plugin/README.md`, `pyproject.toml`
-- `atlassian-dc-plugin/instances.json.example`, `rules.example.md`
-- `atlassian-dc-plugin/shared/`
-- `atlassian-dc-plugin/skills/jira-dc/`
+What gets installed via `python install.py`:
+- `skills/atlassian-dc/` — meta-skill (auto-routing)
+- `skills/jira-dc/` — Jira skill (self-contained)
+- `skills/confluence-dc/` — Confluence skill (self-contained)
+- `skills/bitbucket-dc/` — Bitbucket skill (self-contained)
 
 What stays in this repo for development only:
-- `docker/`
-- `setup_jira.py`, `setup_jira_http.py`, `setup-screenshots/`
-- `atlassian-dc-plugin/tests/`
-- This `DESIGN.md`
-
-When packaging, exclude `tests/` and the dev helpers. The plugin manifest
-points at `skills/jira-dc/` and `shared/`; nothing else needs to ship.
+- `docker/`, `dev/`
+- `tests/`
+- `install.py`, `setup_instance.py`
 
 ## Future Work / Roadmap
 
 Tracked outside this doc, but for orientation:
-- `confluence-dc/` and `bitbucket-dc/` skills following the same pattern.
-- More Jira ops: worklog, attachments, sprints/boards, watchers, issue links.
-- Hard validation of selected rules in scripts (Ebene 3 in earlier discussion).
-- Plugin manifests for OpenCode and Codex, alongside the Claude Code one.
+- Hard validation of selected rules in scripts.
+- Skill manifests for OpenCode and Codex, alongside Claude Code support.
