@@ -33,7 +33,9 @@ def _simplify_pr(pr: dict) -> dict:
             "approved": rv.get("approved"),
             "status": rv.get("status"),
         })
-    return {
+    to_repo = (to_ref.get("repository") or {})
+    to_project = (to_repo.get("project") or {})
+    result = {
         "id": pr.get("id"),
         "version": pr.get("version"),
         "title": pr.get("title"),
@@ -47,6 +49,11 @@ def _simplify_pr(pr: dict) -> dict:
         "createdDate": pr.get("createdDate"),
         "updatedDate": pr.get("updatedDate"),
     }
+    if to_project.get("key"):
+        result["project"] = to_project["key"]
+    if to_repo.get("slug"):
+        result["repo"] = to_repo["slug"]
+    return result
 
 
 def _pr_path(args, suffix: str = "") -> str:
@@ -58,12 +65,27 @@ def _pr_path(args, suffix: str = "") -> str:
 
 def cmd_list(args):
     client = get_bitbucket(args)
-    params: dict = {"state": args.state, "order": args.order}
-    if args.direction:
-        params["direction"] = args.direction
-    if args.at:
-        params["at"] = args.at
-    path = f"projects/{args.project}/repos/{args.repo}/pull-requests"
+    global_mode = not args.project
+    if global_mode:
+        params = {"order": args.order}
+        if args.state and args.state != "ALL":
+            params["state"] = args.state
+        if args.role:
+            params["role"] = args.role
+        if args.participant_status:
+            params["participantStatus"] = args.participant_status
+        path = "dashboard/pull-requests"
+    else:
+        if not args.repo:
+            raise ValidationError("--repo is required when --project is specified")
+        params = {"order": args.order}
+        if args.state and args.state != "ALL":
+            params["state"] = args.state
+        if args.direction:
+            params["direction"] = args.direction
+        if args.at:
+            params["at"] = args.at
+        path = f"projects/{args.project}/repos/{args.repo}/pull-requests"
     values = client.paginate(path, params=params, limit=args.limit)
     if args.json:
         emit({"size": len(values), "values": values}, args)
@@ -71,7 +93,8 @@ def cmd_list(args):
     lines = []
     for pr in values:
         s = _simplify_pr(pr)
-        lines.append(f"#{s['id']:<5} [{s['state']:<8}] {s['fromRef']} -> {s['toRef']} "
+        prefix = f"{s.get('project', '?')}/{s.get('repo', '?')} " if global_mode else ""
+        lines.append(f"{prefix}#{s['id']:<5} [{s['state']:<8}] {s['fromRef']} -> {s['toRef']} "
                      f"by {s['author']:<15} {s['title']}")
     emit([_simplify_pr(pr) for pr in values], args,
          human="\n".join(lines) + f"\n\n{len(values)} pull request(s)")
@@ -281,12 +304,19 @@ def main():
     sub = p.add_subparsers(dest="cmd")
     sub.required = True
 
-    ls = sub.add_parser("list", help="list pull requests")
-    _add_pr_locator(ls, with_id=False)
+    ls = sub.add_parser("list", help="list pull requests (global or per-repo)")
+    ls.add_argument("--project", help="project key (omit for global dashboard view)")
+    ls.add_argument("--repo", help="repository slug (required with --project)")
     ls.add_argument("--state", default="OPEN",
                     choices=["OPEN", "MERGED", "DECLINED", "ALL"])
-    ls.add_argument("--direction", choices=["INCOMING", "OUTGOING"])
-    ls.add_argument("--at", help="filter to PRs targeting this branch ref")
+    ls.add_argument("--role", choices=["AUTHOR", "REVIEWER", "PARTICIPANT"],
+                    help="filter by your role (global mode only)")
+    ls.add_argument("--participant-status",
+                    choices=["UNAPPROVED", "NEEDS_WORK", "APPROVED"],
+                    help="filter by your review status (global mode only)")
+    ls.add_argument("--direction", choices=["INCOMING", "OUTGOING"],
+                    help="filter direction (repo-scoped mode only)")
+    ls.add_argument("--at", help="filter to PRs targeting this branch ref (repo-scoped only)")
     ls.add_argument("--order", default="NEWEST", choices=["NEWEST", "OLDEST"])
     ls.add_argument("--limit", type=int, default=25)
     add_common_args(ls)
