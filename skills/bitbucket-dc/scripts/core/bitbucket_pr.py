@@ -70,7 +70,9 @@ def cmd_list(args):
     if args.project and args.repo:
         # Single repo
         show_repo = False
-        params = {"order": args.order}
+        params = {}
+        if args.order:
+            params["order"] = args.order
         if args.state and args.state != "ALL":
             params["state"] = args.state
         if args.direction:
@@ -86,6 +88,8 @@ def cmd_list(args):
         # All repos in one project
         repos = client.paginate(f"projects/{args.project}/repos", limit=200)
         params = {}
+        if args.order:
+            params["order"] = args.order
         if args.state and args.state != "ALL":
             params["state"] = args.state
         if args.direction:
@@ -107,7 +111,9 @@ def cmd_list(args):
 
     else:
         # Global dashboard
-        params = {"order": args.order}
+        params = {}
+        if args.order:
+            params["order"] = args.order
         if args.state and args.state != "ALL":
             params["state"] = args.state
         if args.role:
@@ -337,7 +343,7 @@ def main():
     ls = sub.add_parser("list", help="list pull requests (global or per-repo)")
     ls.add_argument("--project", help="project key (omit for global dashboard view)")
     ls.add_argument("--repo", help="repository slug (required with --project)")
-    ls.add_argument("--state", default="OPEN",
+    ls.add_argument("--state", default="ALL",
                     choices=["OPEN", "MERGED", "DECLINED", "ALL"])
     ls.add_argument("--role", choices=["AUTHOR", "REVIEWER", "PARTICIPANT"],
                     help="filter by your role (global mode only)")
@@ -347,7 +353,8 @@ def main():
     ls.add_argument("--direction", choices=["INCOMING", "OUTGOING"],
                     help="filter direction (repo-scoped mode only)")
     ls.add_argument("--at", help="filter to PRs targeting this branch ref (repo-scoped only)")
-    ls.add_argument("--order", default="NEWEST", choices=["NEWEST", "OLDEST"])
+    ls.add_argument("--order", choices=["NEWEST", "OLDEST"],
+                    help="sort order (omitted by default for max compatibility)")
     ls.add_argument("--limit", type=int, default=25)
     add_common_args(ls)
     ls.set_defaults(func=cmd_list)
