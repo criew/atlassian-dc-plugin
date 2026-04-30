@@ -13,13 +13,13 @@ from typing import Optional
 
 import pytest
 
-PLUGIN_ROOT = Path(__file__).resolve().parents[1]
-BB_SCRIPTS = PLUGIN_ROOT / "skills" / "bitbucket-dc" / "scripts"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+BB_SCRIPTS = REPO_ROOT / "skills" / "bitbucket-dc" / "scripts"
 
 
 @pytest.fixture
 def bb_runner(isolated_config, write_instances):
-    """Run a Bitbucket plugin script in a subprocess with isolated config."""
+    """Run a Bitbucket skill script in a subprocess with isolated config."""
 
     def _run(script_relpath: str, *args, instances: Optional[dict] = None,
              extra_env: Optional[dict] = None, timeout: int = 30):

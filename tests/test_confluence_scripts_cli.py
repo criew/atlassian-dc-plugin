@@ -17,8 +17,8 @@ from typing import Optional
 
 import pytest
 
-PLUGIN_ROOT = Path(__file__).resolve().parents[1]
-CONFLUENCE_SCRIPTS = PLUGIN_ROOT / "skills" / "confluence-dc" / "scripts"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+CONFLUENCE_SCRIPTS = REPO_ROOT / "skills" / "confluence-dc" / "scripts"
 
 
 @pytest.fixture

@@ -72,7 +72,7 @@ def write_rules(isolated_config):
 
 @pytest.fixture
 def script_runner(isolated_config, write_instances):
-    """Run a plugin script in a subprocess with the test config in scope.
+    """Run a skill script in a subprocess with the test config in scope.
 
     Returns a callable: runner(script_relpath, *args, instances=...) -> CompletedProcess
     """

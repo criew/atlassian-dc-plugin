@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Interactive instance + PAT setup for the Atlassian DC plugin.
+"""Interactive instance + PAT setup for the Atlassian DC skills.
 
 Walks the user through:
   1. choosing/creating an alias (default: 'local')

@@ -16,7 +16,7 @@ version bumps, error handling, and output formatting. You only choose the script
 
 ## Configuration
 
-Credentials live in `instances.json` — see plugin README for setup. Each instance has an
+Credentials live in `instances.json` — see README for setup. Each instance has an
 alias; pass `--instance ALIAS` to switch, otherwise the default is used. Each instance
 needs a `confluence` block (`url` and `token` — Personal Access Token, PAT-only).
 
@@ -46,7 +46,7 @@ the bump yourself.
 
 ## Scripts
 
-Run with `uv run <script> <subcommand> [args]` from the plugin root, or directly with
+Run with `uv run <script> <subcommand> [args]` from the repo root, or directly with
 `python <script>` if `requests` is on the path.
 
 ### scripts/core/confluence_space.py

@@ -56,11 +56,11 @@ universal CLI flags:
 
 ## First-time setup (point the user here when `instances.json` is missing)
 
-The user installs the plugin once and then registers their server(s). Two
+The user installs the skills once and then registers their server(s). Two
 helper scripts in the repo root drive this:
 
 ```bash
-python install.py                       # detects Claude/OpenCode/Codex, installs the plugin
+python install.py                       # detects Claude/OpenCode/Codex, installs the skills
 python setup_instance.py                # interactive: alias, products, URLs, login → PAT → instances.json
 ```
 

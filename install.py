@@ -76,7 +76,7 @@ def detect_harness() -> Optional[str]:
 
 def resolve_target(args) -> Path:
     if args.target:
-        return Path(args.target).expanduser().resolve() / PLUGIN_NAME
+        return Path(args.target).expanduser().resolve()
 
     harness = args.harness
     if harness == "auto":
@@ -134,7 +134,7 @@ def main() -> None:
     p.add_argument("--scope", choices=["user", "project"], default="user")
     default_mode = "copy" if platform.system() == "Windows" else "link"
     p.add_argument("--mode", choices=["link", "copy"], default=default_mode)
-    p.add_argument("--target", help="explicit install dir (parent of the plugin folder)")
+    p.add_argument("--target", help="explicit install dir (skills will be placed inside)")
     p.add_argument("--yes", "-y", action="store_true",
                    help="overwrite an existing target without prompting")
     args = p.parse_args()

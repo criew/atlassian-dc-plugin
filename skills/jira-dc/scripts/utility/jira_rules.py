@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Server-specific rules for the active Jira instance.
 
-Rules live in user config (NOT in the plugin) at:
+Rules live in user config (NOT in the skill) at:
   $ATLASSIAN_CONFIG_DIR/rules/<alias>.md           (override)
   ~/.config/atlassian/rules/<alias>.md             (Linux/macOS)
   %APPDATA%\\atlassian\\rules\\<alias>.md          (Windows)

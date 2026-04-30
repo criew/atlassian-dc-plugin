@@ -154,10 +154,10 @@ Splitting per project becomes worthwhile only when a single file gets unwieldy.
 
 ### Why is user config separated?
 
-- The plugin is in version control and shared across machines / users / orgs.
+- The skills are in version control and shared across machines / users / orgs.
   Credentials and house rules are not.
-- A future plugin update should never overwrite a user's tweaks.
-- A user can switch their `default` alias without touching plugin files.
+- A future skills update should never overwrite a user's tweaks.
+- A user can switch their `default` alias without touching skill files.
 - `$ATLASSIAN_CONFIG_DIR` lets a power user (or automation) point at an
   arbitrary location, e.g. an encrypted Vault mount.
 
@@ -340,7 +340,7 @@ the user asks "create an issue with high priority" and we need to know if
 
 ### Server-side rules live in user config, not in code
 
-Rules are markdown files in `~/.config/atlassian/rules/<alias>.md`. The plugin
+Rules are markdown files in `~/.config/atlassian/rules/<alias>.md`. The skill
 exposes them via `jira_rules.py show`; SKILL.md tells the LLM to consult
 them before write ops. Hard validation in scripts is intentionally **not**
 implemented as default — it would require duplicating each rule both in
