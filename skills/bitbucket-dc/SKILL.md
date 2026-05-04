@@ -137,7 +137,9 @@ If the user wants a standalone script (not a one-off call), prefer importing fro
 (`load_instance`) from this skill's `scripts/` directory so the multi-instance logic and PAT handling are reused. Never
 inline tokens or URLs.
 
-## Safety
+## Formatting
+IMPORTANT: Always use the Atlassian/Jira Wiki Markup language for pull request descriptions and comments to ensure correct rendering of formatting and technical terms.
+
 
 - For destructive operations (`delete`, `decline`, `merge`), prefer `--dry-run` first
   when the user is uncertain or the repo/PR id was inferred rather than explicitly given.

@@ -133,7 +133,9 @@ If the user wants a standalone script (not a one-off call), prefer importing fro
 `_common.py` (`load_instance`) and `_jira.py` (`JiraClient`) from this skill's `scripts/` directory so the multi-instance logic is reused.
 Never inline tokens or URLs.
 
-## Safety
+## Formatting
+IMPORTANT: Always use the Atlassian/Jira Wiki Markup language for issue descriptions and comments to ensure correct rendering of formatting and technical terms.
+
 
 - For destructive operations (`delete`, `transition`), prefer `--dry-run` first when the
   user is uncertain or the issue key was inferred rather than explicitly given.

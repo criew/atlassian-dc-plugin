@@ -73,6 +73,9 @@ After that, optional but recommended:
 python skills/jira-dc/scripts/utility/jira_rules.py auto-discover
 ```
 
+## Formatting
+IMPORTANT: Always use the Atlassian/Jira Wiki Markup language for comments, page content, and descriptions in Jira, Confluence, and Bitbucket to ensure correct rendering of formatting and technical terms.
+
 ## Safety
 
 - Read `jira_rules.py show` before write operations — server-specific rules
