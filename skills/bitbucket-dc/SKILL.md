@@ -39,8 +39,7 @@ own repos.
 
 ## Scripts
 
-Run with `uv run <script> <subcommand> [args]` from the repo root, or directly with
-`python <script>` if `requests` is on the path.
+Run with `python <script> <subcommand> [args]` from the skill's `scripts/` directory.
 
 ### scripts/core/bitbucket_project.py
 Subcommands:

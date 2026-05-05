@@ -11,9 +11,10 @@ decisions. It is the entry point for understanding the codebase.
 ## Quick Start
 
 For end users:
+- Run `./setup.sh` (Linux/macOS) or `setup.bat` (Windows) to check prerequisites and install dependencies.
 - Run `python install.py` to install skills into your agent harness.
 - Run `python setup_instance.py` (or copy `instances.json.example`) to configure credentials.
-- Pre-built skill scripts run via `uv run` or plain `python`.
+- Pre-built skill scripts run via `python`.
 
 For developers (working in this repo):
 - `docker/docker-compose.yml` brings up local Jira / Confluence / Bitbucket DC.
@@ -81,7 +82,7 @@ skills/
 tests/                               # 172 pytest cases across 9 test files
 instances.json.example               # template for user config
 rules.example.md                     # template for per-instance rules
-pyproject.toml                       # uv-runnable, declares deps
+pyproject.toml                       # declares deps (requests)
 ```
 
 Each skill is **self-contained**: it carries its own `_common.py` (config loader,

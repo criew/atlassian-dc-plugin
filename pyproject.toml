@@ -7,5 +7,3 @@ dependencies = [
     "requests>=2.31",
 ]
 
-[tool.uv]
-package = false
