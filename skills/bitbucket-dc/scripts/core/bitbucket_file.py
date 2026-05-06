@@ -99,20 +99,19 @@ def cmd_search(args):
     if args.type not in valid:
         raise ValidationError(f"--type must be one of: {', '.join(sorted(valid))}")
 
-    # Bitbucket DC code search lives at /rest/search/1.0/search and accepts
-    # a GET with query params (Elasticsearch-backed).
+    # Bitbucket DC code search requires POST with JSON body.
     client = get_bitbucket(args)
-    params = {
+    body = {
         "searchQuery": args.query,
         "type": args.type,
         "start": 0,
         "limit": min(args.limit, 100),
     }
     if args.project:
-        params["projectKey"] = args.project
+        body["projectKey"] = args.project
     if args.repo:
-        params["repoSlug"] = args.repo
-    data = client.get("/rest/search/1.0/search", params=params)
+        body["repoSlug"] = args.repo
+    data = client.post("/rest/search/1.0/search", body=body)
     if args.json:
         emit(data, args)
         return
