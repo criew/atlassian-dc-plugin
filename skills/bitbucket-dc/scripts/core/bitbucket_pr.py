@@ -189,35 +189,61 @@ def cmd_get(args):
                f"{s['title']}")
 
 
+def _fetch_default_reviewers(client, project, repo, from_ref, to_ref):
+    """Fetch default reviewers configured for this source/target combination."""
+    path = (f"/rest/default-reviewers/1.0/projects/{project}/repos/{repo}"
+            f"/reviewers")
+    params = {"sourceRefId": from_ref, "targetRefId": to_ref}
+    try:
+        data = client.get(path, params=params)
+    except Exception:
+        return []
+    if not isinstance(data, list):
+        return []
+    return [entry.get("name") for entry in data if entry.get("name")]
+
+
 def cmd_create(args):
+    from_ref = _ref(args.from_branch)
+    to_ref = _ref(args.to_branch)
     body = {
         "title": args.title,
         "fromRef": {
-            "id": _ref(args.from_branch),
+            "id": from_ref,
             "repository": {"slug": args.repo, "project": {"key": args.project}},
         },
         "toRef": {
-            "id": _ref(args.to_branch),
+            "id": to_ref,
             "repository": {"slug": args.repo, "project": {"key": args.project}},
         },
     }
     if args.description is not None:
         body["description"] = args.description
-    if args.reviewer:
-        body["reviewers"] = [{"user": {"name": r}} for r in args.reviewer]
-    path = f"projects/{args.project}/repos/{args.repo}/pull-requests"
-    if args.dry_run:
-        emit_dry_run(
-            {"method": "POST", "path": f"/rest/api/1.0/{path}", "body": body},
-            args,
-            human=f"would create PR {args.from_branch} -> {args.to_branch} "
-                  f"on {args.project}/{args.repo}: {args.title!r}",
-        )
+
+    explicit = list(args.reviewer or [])
+
+    if not args.dry_run:
+        client = get_bitbucket(args)
+        default_names = _fetch_default_reviewers(
+            client, args.project, args.repo, from_ref, to_ref)
+        all_names = list(dict.fromkeys(explicit + default_names))
+        if all_names:
+            body["reviewers"] = [{"user": {"name": n}} for n in all_names]
+        data = client.post(
+            f"projects/{args.project}/repos/{args.repo}/pull-requests", body)
+        emit(data, args,
+             human=f"created PR #{data.get('id')} on {args.project}/{args.repo}")
         return
-    client = get_bitbucket(args)
-    data = client.post(path, body)
-    emit(data, args,
-         human=f"created PR #{data.get('id')} on {args.project}/{args.repo}")
+
+    if explicit:
+        body["reviewers"] = [{"user": {"name": r}} for r in explicit]
+    path = f"projects/{args.project}/repos/{args.repo}/pull-requests"
+    emit_dry_run(
+        {"method": "POST", "path": f"/rest/api/1.0/{path}", "body": body},
+        args,
+        human=f"would create PR {args.from_branch} -> {args.to_branch} "
+              f"on {args.project}/{args.repo}: {args.title!r}",
+    )
 
 
 def cmd_update(args):

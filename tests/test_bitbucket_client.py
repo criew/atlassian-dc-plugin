@@ -181,6 +181,82 @@ def test_delete_can_send_body(client):
                                 else captured[0].encode())
 
 
+@responses.activate
+def test_fetch_default_reviewers_returns_names(client):
+    from core.bitbucket_pr import _fetch_default_reviewers
+    responses.add(
+        responses.GET,
+        "http://bb.test/rest/default-reviewers/1.0/projects/P/repos/R/reviewers",
+        json=[{"name": "alice", "active": True}, {"name": "bob", "active": True}],
+        status=200,
+    )
+    names = _fetch_default_reviewers(
+        client, "P", "R", "refs/heads/feature/x", "refs/heads/main")
+    assert names == ["alice", "bob"]
+    assert "sourceRefId" in responses.calls[0].request.url
+    assert "targetRefId" in responses.calls[0].request.url
+
+
+@responses.activate
+def test_fetch_default_reviewers_survives_404(client):
+    from core.bitbucket_pr import _fetch_default_reviewers
+    responses.add(
+        responses.GET,
+        "http://bb.test/rest/default-reviewers/1.0/projects/P/repos/R/reviewers",
+        json={"errors": [{"message": "not found"}]},
+        status=404,
+    )
+    names = _fetch_default_reviewers(
+        client, "P", "R", "refs/heads/a", "refs/heads/b")
+    assert names == []
+
+
+@responses.activate
+def test_create_pr_merges_default_reviewers(client):
+    from core.bitbucket_pr import _fetch_default_reviewers, cmd_create
+    import argparse
+
+    responses.add(
+        responses.GET,
+        "http://bb.test/rest/default-reviewers/1.0/projects/P/repos/R/reviewers",
+        json=[{"name": "default-user", "active": True}],
+        status=200,
+    )
+    captured_body = {}
+
+    def _cb(req):
+        import json as _json
+        captured_body.update(_json.loads(req.body))
+        return (201, {}, _json.dumps({"id": 99, "version": 0, "title": "T",
+                                       "timeSpent": None}))
+
+    responses.add_callback(
+        responses.POST,
+        "http://bb.test/rest/api/1.0/projects/P/repos/R/pull-requests",
+        callback=_cb,
+    )
+
+    args = argparse.Namespace(
+        project="P", repo="R", title="T",
+        from_branch="feature/x", to_branch="main",
+        description=None, reviewer=["explicit-user"],
+        dry_run=False, json=True, quiet=False,
+        instance=None, debug=False,
+    )
+    # Monkey-patch get_bitbucket to return our test client
+    import core.bitbucket_pr as pr_mod
+    orig = pr_mod.get_bitbucket
+    pr_mod.get_bitbucket = lambda _args: client
+    try:
+        pr_mod.cmd_create(args)
+    finally:
+        pr_mod.get_bitbucket = orig
+
+    reviewer_names = [r["user"]["name"] for r in captured_body.get("reviewers", [])]
+    assert "explicit-user" in reviewer_names
+    assert "default-user" in reviewer_names
+
+
 def test_pat_token_never_appears_in_real_error(client, monkeypatch):
     secret = "very-secret-bb-token-DO-NOT-LEAK-789"
     inst = Instance(alias="t", product="bitbucket", url="http://nonexistent.invalid",
