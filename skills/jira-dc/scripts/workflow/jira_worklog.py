@@ -21,6 +21,16 @@ from _jira import get_jira  # noqa: E402
 _UNITS = {"w": 7 * 24 * 3600, "d": 24 * 3600, "h": 3600, "m": 60, "s": 1}
 
 
+def _normalize_jira_timestamp(ts: str) -> str:
+    """Normalize ISO 8601 timestamp to Jira DC format (milliseconds, no colon in tz)."""
+    # Add milliseconds if missing
+    if re.match(r".*T\d{2}:\d{2}:\d{2}[+\-Z]", ts):
+        ts = re.sub(r"(T\d{2}:\d{2}:\d{2})([+\-Z])", r"\1.000\2", ts)
+    # Remove colon from timezone offset: +02:00 -> +0200
+    ts = re.sub(r"([+\-]\d{2}):(\d{2})$", r"\1\2", ts)
+    return ts
+
+
 def parse_time_spent(s: str) -> int:
     """Parse '1w 2d 3h 30m' style strings into seconds."""
     if not s or not s.strip():
@@ -63,7 +73,7 @@ def cmd_add(args):
     if args.comment:
         body["comment"] = args.comment
     if args.started:
-        body["started"] = args.started  # ISO 8601, e.g. 2026-04-29T10:00:00.000+0000
+        body["started"] = _normalize_jira_timestamp(args.started)
 
     if args.dry_run:
         emit_dry_run(

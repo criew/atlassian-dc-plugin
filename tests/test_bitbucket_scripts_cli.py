@@ -249,6 +249,18 @@ class TestFile:
         # argparse rejects pre-script with non-zero exit
         assert r.returncode != 0
 
+    def test_search_builds_correct_post_body(self, bb_runner):
+        """Verify search sends POST with nested entities structure."""
+        r = bb_runner("core/bitbucket_file.py", "search", "myQuery",
+                      "--type", "code", "--project", "PROJ", "--repo", "myrepo",
+                      "--limit", "50", "--debug",
+                      instances=INST, timeout=15)
+        # Will fail to connect but debug output shows the request body
+        combined = r.stdout + r.stderr
+        assert '"query": "myQuery"' in combined or '"query":"myQuery"' in combined
+        assert "entities" in combined
+        assert "searchQuery" not in combined
+
 
 # -----------------------------------------------------------------------------
 # Pull request

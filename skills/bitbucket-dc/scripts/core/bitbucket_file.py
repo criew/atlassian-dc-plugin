@@ -99,31 +99,31 @@ def cmd_search(args):
     if args.type not in valid:
         raise ValidationError(f"--type must be one of: {', '.join(sorted(valid))}")
 
-    # Bitbucket DC code search requires POST with JSON body.
+    # Bitbucket DC search API expects POST with nested entities structure.
     client = get_bitbucket(args)
-    body = {
-        "searchQuery": args.query,
-        "type": args.type,
-        "start": 0,
-        "limit": min(args.limit, 100),
-    }
+    entity_params = {"start": 0, "limit": min(args.limit, 100)}
     if args.project:
-        body["projectKey"] = args.project
+        entity_params["projectKey"] = args.project
     if args.repo:
-        body["repoSlug"] = args.repo
+        entity_params["repoSlug"] = args.repo
+    body = {
+        "query": args.query,
+        "entities": {
+            args.type: entity_params,
+        },
+    }
     data = client.post("/rest/search/1.0/search", body=body)
     if args.json:
         emit(data, args)
         return
     values = []
     if isinstance(data, dict):
-        # The shape varies between server versions; surface whatever values list we find.
-        if "values" in data:
+        # Response nests results under the entity type key.
+        entity_result = data.get(args.type)
+        if isinstance(entity_result, dict) and "values" in entity_result:
+            values = entity_result.get("values") or []
+        elif "values" in data:
             values = data.get("values") or []
-        else:
-            for v in data.values():
-                if isinstance(v, dict) and "values" in v:
-                    values.extend(v.get("values") or [])
     emit(data, args, human=f"{len(values)} hit(s) for {args.query!r}")
 
 

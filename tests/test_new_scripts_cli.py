@@ -47,6 +47,26 @@ class TestWorklog:
         assert "invalid time format" in r.stderr.lower()
         assert "garbage" in r.stderr
 
+    def test_add_dry_run_normalizes_started_timestamp(self, script_runner):
+        r = script_runner("workflow/jira_worklog.py", "add", "TEST-1",
+                          "--time-spent", "30m",
+                          "--started", "2026-05-06T07:30:00+02:00",
+                          "--dry-run", "--json",
+                          instances=self.INST)
+        assert r.returncode == 0
+        payload = json.loads(r.stdout)
+        assert payload["intent"]["body"]["started"] == "2026-05-06T07:30:00.000+0200"
+
+    def test_add_dry_run_preserves_already_correct_timestamp(self, script_runner):
+        r = script_runner("workflow/jira_worklog.py", "add", "TEST-1",
+                          "--time-spent", "1h",
+                          "--started", "2026-05-06T07:30:00.000+0200",
+                          "--dry-run", "--json",
+                          instances=self.INST)
+        assert r.returncode == 0
+        payload = json.loads(r.stdout)
+        assert payload["intent"]["body"]["started"] == "2026-05-06T07:30:00.000+0200"
+
     def test_update_without_field_fails(self, script_runner):
         r = script_runner("workflow/jira_worklog.py", "update", "TEST-1", "1234",
                           instances=self.INST)
