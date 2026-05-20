@@ -131,7 +131,7 @@ def cmd_list(args):
         params = {}
         if args.order:
             params["order"] = args.order
-        if args.state and args.state != "ALL":
+        if args.state:
             params["state"] = args.state
         if args.direction:
             params["direction"] = args.direction
