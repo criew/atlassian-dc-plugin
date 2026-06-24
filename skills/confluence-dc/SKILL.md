@@ -87,10 +87,14 @@ Subcommands:
 - `list ID [--filename NAME]`
 - `add ID --file path/to/file [--comment "..."]`
 - `get ATTACHMENT_ID` — metadata
+- `download ATTACHMENT_ID [--output FILE|DIR] [--force]` — save binary content
 - `delete ATTACHMENT_ID`
 
 Multipart uploads use the documented `X-Atlassian-Token: no-check` header and let
 `requests` pick the multipart boundary itself (no manual `Content-Type`).
+
+Downloads follow the attachment's `_links.download` path (server-relative, outside
+`/rest/api`), stream to a `.part` temp file, then atomically rename into place.
 
 ### scripts/workflow/confluence_restriction.py
 Page-level read/edit permissions. Operations are `read` or `update`.

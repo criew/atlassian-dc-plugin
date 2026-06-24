@@ -7,7 +7,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from _common import add_common_args, emit, emit_dry_run, run, ValidationError  # noqa: E402
+from _common import (  # noqa: E402
+    add_common_args,
+    APIError,
+    emit,
+    emit_dry_run,
+    run,
+    ValidationError,
+)
 from _confluence import get_confluence  # noqa: E402
 
 
@@ -98,6 +105,74 @@ def cmd_get(args):
                f"version={(data.get('version') or {}).get('number')}")
 
 
+def cmd_download(args):
+    import os
+
+    client = get_confluence(args)
+    meta = client.get(
+        f"content/{args.attachment_id}",
+        params={"expand": "version,container"},
+    )
+    title = meta.get("title") or args.attachment_id
+    links = meta.get("_links") or {}
+    download_path = links.get("download")
+    if not download_path:
+        raise ValidationError(
+            f"{args.attachment_id} has no download link "
+            f"(is it really an attachment? type={meta.get('type')})"
+        )
+
+    # _links.download is a server-relative path (e.g.
+    # /download/attachments/<pageId>/<file>?version=1&...), not under /rest/api.
+    base = links.get("base") or client.instance.url
+    url = f"{base}{download_path}"
+
+    # Resolve the output destination. --output may be a file or a directory.
+    out = Path(args.output) if args.output else Path(title)
+    if out.is_dir() or args.output in (".", "./"):
+        out = out / title
+    if out.exists() and not args.force:
+        raise ValidationError(
+            f"refusing to overwrite existing file: {out} (use --force)"
+        )
+
+    if args.dry_run:
+        emit_dry_run(
+            {"method": "GET", "url": url, "output": str(out)},
+            args,
+            human=f"would download {title} to {out}",
+        )
+        return
+
+    import requests
+    headers = {"Authorization": f"Bearer {client.instance.token}"}
+    with requests.get(
+        url,
+        headers=headers,
+        stream=True,
+        timeout=120,
+        verify=client.instance.ssl_verify,
+    ) as resp:
+        if resp.status_code >= 400:
+            # Map to AuthError/NotFoundError/etc. via the shared handler.
+            client._handle(resp)
+        tmp = out.with_name(out.name + ".part")
+        total = 0
+        with tmp.open("wb") as fh:
+            for chunk in resp.iter_content(chunk_size=65536):
+                if chunk:
+                    fh.write(chunk)
+                    total += len(chunk)
+        os.replace(tmp, out)
+
+    emit(
+        {"downloaded": str(out), "bytes": total, "attachment_id": args.attachment_id,
+         "title": title},
+        args,
+        human=f"downloaded {title} ({total} bytes) to {out}",
+    )
+
+
 def cmd_delete(args):
     if args.dry_run:
         emit_dry_run(
@@ -134,6 +209,14 @@ def main():
     g.add_argument("attachment_id")
     add_common_args(g)
     g.set_defaults(func=cmd_get)
+
+    dl = sub.add_parser("download", help="download attachment binary content to a file")
+    dl.add_argument("attachment_id")
+    dl.add_argument("--output", "-o",
+                    help="output file or directory (default: attachment filename in cwd)")
+    dl.add_argument("--force", action="store_true", help="overwrite an existing file")
+    add_common_args(dl)
+    dl.set_defaults(func=cmd_download)
 
     d = sub.add_parser("delete", help="delete an attachment by id")
     d.add_argument("attachment_id")
