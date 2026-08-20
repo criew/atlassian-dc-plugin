@@ -11,7 +11,7 @@ from typing import Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from _common import add_common_args, emit, emit_dry_run, run, ValidationError  # noqa: E402
+from _common import add_common_args, emit, emit_dry_run, emit_list, run, ValidationError  # noqa: E402
 from _bitbucket import get_bitbucket  # noqa: E402
 
 
@@ -91,13 +91,18 @@ def _pr_matches_scope(pr, project=None, repo=None):
 
 
 def _dashboard_filtered(client, params, limit, project=None, repo=None):
-    # type: (...) -> list
-    """Paginate dashboard/pull-requests, optionally filtering by project/repo."""
+    # type: (...) -> tuple
+    """Paginate dashboard/pull-requests, optionally filtering by project/repo.
+
+    Returns ``(items, truncated, next_start)``. When filtering client-side by
+    project/repo, ``truncated`` covers both "hit --limit before scanning all
+    pages" and "hit the max_pages safety cap before the server ran out".
+    """
     if not project and not repo:
-        return client.paginate("dashboard/pull-requests", params=params, limit=limit)
+        return client.paginate_meta("dashboard/pull-requests", params=params, limit=limit)
     collected = []
     page_params = dict(params)
-    start = 0
+    start = int(page_params.pop("start", 0) or 0)
     page_size = 50
     max_pages = 20
     for _ in range(max_pages):
@@ -106,19 +111,20 @@ def _dashboard_filtered(client, params, limit, project=None, repo=None):
         data = client.get("dashboard/pull-requests", params=page_params)
         values = data.get("values", []) if isinstance(data, dict) else []
         if not values:
-            break
+            return collected[:limit], False, start
         for pr in values:
             if _pr_matches_scope(pr, project, repo):
                 collected.append(pr)
                 if len(collected) >= limit:
-                    return collected[:limit]
+                    return collected[:limit], True, start
         if not isinstance(data, dict) or data.get("isLastPage", True):
-            break
+            return collected[:limit], False, start
         next_start = data.get("nextPageStart")
         if next_start is None or next_start == start:
-            break
+            return collected[:limit], False, start
         start = next_start
-    return collected[:limit]
+    # Hit the max_pages safety cap without exhausting the server's pages.
+    return collected[:limit], True, start
 
 
 def cmd_list(args):
@@ -128,7 +134,7 @@ def cmd_list(args):
     if args.project and args.repo:
         # Single repo — try repo-scoped endpoint first
         show_repo = False
-        params = {}
+        params = {"start": args.start}
         if args.order:
             params["order"] = args.order
         if args.state:
@@ -137,7 +143,7 @@ def cmd_list(args):
             params["direction"] = args.direction
         if args.at:
             params["at"] = args.at
-        values = client.paginate(
+        values, truncated, next_start = client.paginate_meta(
             f"projects/{args.project}/repos/{args.repo}/pull-requests",
             params=params, limit=args.limit,
         )
@@ -148,36 +154,39 @@ def cmd_list(args):
                 _sys.stderr.write("[debug] repo endpoint returned 0 results, "
                                   "falling back to dashboard\n")
             show_repo = True
-            values = _dashboard_filtered(
+            values, truncated, next_start = _dashboard_filtered(
                 client, _dashboard_params(args), args.limit,
                 project=args.project, repo=args.repo,
             )
 
     elif args.project:
         # Project-level — use dashboard with project filter
-        values = _dashboard_filtered(
+        values, truncated, next_start = _dashboard_filtered(
             client, _dashboard_params(args), args.limit,
             project=args.project,
         )
 
     else:
         # Global dashboard
-        values = _dashboard_filtered(
+        values, truncated, next_start = _dashboard_filtered(
             client, _dashboard_params(args), args.limit,
         )
 
     values = values[:args.limit]
-    if args.json:
-        emit({"size": len(values), "values": values}, args)
+    if not values:
+        emit({"returned": 0, "total": None, "truncated": False, "values": []},
+             args, human="no pull requests found")
         return
+    hint = f"rerun with a higher --limit (or --start {next_start}) to fetch more" if truncated else None
     lines = []
     for pr in values:
         s = _simplify_pr(pr)
         prefix = f"{s.get('project', '?')}/{s.get('repo', '?')} " if show_repo else ""
         lines.append(f"{prefix}#{s['id']:<5} [{s['state']:<8}] {s['fromRef']} -> {s['toRef']} "
                      f"by {s['author']:<15} {s['title']}")
-    emit([_simplify_pr(pr) for pr in values], args,
-         human="\n".join(lines) + f"\n\n{len(values)} pull request(s)")
+    emit_list([_simplify_pr(pr) for pr in values], args, lines,
+              total=None, truncated=truncated, next_hint=hint,
+              item_name="pull request", key="values")
 
 
 def cmd_get(args):
@@ -347,7 +356,8 @@ def cmd_list_comments(args):
     client = get_bitbucket(args)
     # Bitbucket exposes comments via the activities feed for general PR comments.
     path = f"projects/{args.project}/repos/{args.repo}/pull-requests/{args.id}/activities"
-    values = client.paginate(path, limit=args.limit)
+    values, truncated, next_start = client.paginate_meta(
+        path, params={"start": args.start}, limit=args.limit)
     comments = []
     for act in values:
         if act.get("action") == "COMMENTED" and act.get("comment"):
@@ -361,13 +371,17 @@ def cmd_list_comments(args):
                 "createdDate": c.get("createdDate"),
                 "updatedDate": c.get("updatedDate"),
             })
-    if args.json:
-        emit({"size": len(comments), "values": comments}, args)
+    if not comments:
+        emit({"returned": 0, "total": None, "truncated": False, "values": []},
+             args, human=f"no comments on PR #{args.id}")
         return
+    # The activities feed mixes comments with other events, so the truncation
+    # signal comes from the underlying page walk, not from len(comments).
+    hint = f"rerun with a higher --limit (or --start {next_start}) to fetch more" if truncated else None
     lines = [f"#{c['id']:<6} {c['author'] or '?':<15} {(c['text'] or '')[:80]}"
              for c in comments]
-    emit(comments, args,
-         human="\n".join(lines) + f"\n\n{len(comments)} comment(s) on PR #{args.id}")
+    emit_list(comments, args, lines, total=None, truncated=truncated, next_hint=hint,
+              item_name="comment", key="values")
 
 
 def cmd_approve(args):
@@ -426,6 +440,7 @@ def main():
     ls.add_argument("--order", choices=["NEWEST", "OLDEST"],
                     help="sort order (omitted by default for max compatibility)")
     ls.add_argument("--limit", type=int, default=25)
+    ls.add_argument("--start", type=int, default=0, help="initial pagination offset")
     add_common_args(ls)
     ls.set_defaults(func=cmd_list)
 
@@ -489,6 +504,7 @@ def main():
     lc = sub.add_parser("list-comments", help="list comments on a PR")
     _add_pr_locator(lc)
     lc.add_argument("--limit", type=int, default=100)
+    lc.add_argument("--start", type=int, default=0, help="initial pagination offset")
     add_common_args(lc)
     lc.set_defaults(func=cmd_list_comments)
 

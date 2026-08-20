@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from _common import add_common_args, emit, run  # noqa: E402
+from _common import add_common_args, emit, emit_list, run  # noqa: E402
 from _jira import get_jira, simplify_issue  # noqa: E402
 
 def main():
@@ -15,13 +15,15 @@ def main():
     p.add_argument("jql", help="JQL query, e.g. 'project = TEST AND status = Open'")
     p.add_argument("--fields", default="summary,status,issuetype,priority,assignee,labels")
     p.add_argument("--limit", type=int, default=50, help="max results across pages")
+    p.add_argument("--start-at", type=int, default=0, help="initial pagination offset")
     p.add_argument("--page-size", type=int, default=50)
     add_common_args(p)
     args = p.parse_args()
 
     client = get_jira(args)
     collected = []
-    start_at = 0
+    start_at = args.start_at
+    total = 0
     while len(collected) < args.limit:
         page_size = min(args.page_size, args.limit - len(collected))
         data = client.get("search", params={
@@ -37,22 +39,22 @@ def main():
             break
         start_at += len(issues)
 
-    if args.json:
-        emit({"total": len(collected), "issues": collected}, args)
-        return
+    returned = len(collected)
+    next_start = args.start_at + returned
+    hint = f"rerun with --limit {total} (or --start-at {next_start}) to fetch the rest"
 
     if not collected:
-        emit({"total": 0, "issues": []}, args, human="no issues found")
+        emit({"returned": 0, "total": total, "truncated": False, "issues": []},
+             args, human="no issues found")
         return
 
     lines = []
     for raw in collected:
         s = simplify_issue(raw)
         lines.append(f"{s['key']:<14} [{s['status']:<12}] {s['issuetype']:<8} {s['summary']}")
-    emit(
-        {"total": len(collected), "issues": [simplify_issue(i) for i in collected]},
-        args,
-        human="\n".join(lines) + f"\n\n{len(collected)} issue(s)",
+    emit_list(
+        collected, args, lines,
+        total=total, next_hint=hint, item_name="issue", key="issues",
     )
 
 

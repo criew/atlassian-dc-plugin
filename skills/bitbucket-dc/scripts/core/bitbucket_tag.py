@@ -6,28 +6,31 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from _common import add_common_args, emit, emit_dry_run, run  # noqa: E402
+from _common import add_common_args, emit, emit_dry_run, emit_list, run  # noqa: E402
 from _bitbucket import get_bitbucket  # noqa: E402
 
 
 def cmd_list(args):
     client = get_bitbucket(args)
-    params = {}
+    params = {"start": args.start}
     if args.filter:
         params["filterText"] = args.filter
     if args.order:
         params["orderBy"] = args.order
     path = f"projects/{args.project}/repos/{args.repo}/tags"
-    values = client.paginate(path, params=params, limit=args.limit)
-    if args.json:
-        emit({"size": len(values), "values": values}, args)
+    values, truncated, next_start = client.paginate_meta(path, params=params, limit=args.limit)
+    if not values:
+        emit({"returned": 0, "total": None, "truncated": False, "values": []},
+             args, human="no tags found")
         return
+    hint = f"rerun with a higher --limit (or --start {next_start}) to fetch more" if truncated else None
     lines = [
         f"{t.get('displayId', ''):<30} {t.get('latestCommit', '')[:10]} "
         f"({t.get('type', '')})"
         for t in values
     ]
-    emit(values, args, human="\n".join(lines) + f"\n\n{len(values)} tag(s)")
+    emit_list(values, args, lines, total=None, truncated=truncated, next_hint=hint,
+              item_name="tag", key="values")
 
 
 def cmd_create(args):
@@ -75,6 +78,7 @@ def main():
     ls.add_argument("--filter", help="filter by name substring")
     ls.add_argument("--order", choices=["ALPHABETICAL", "MODIFICATION"])
     ls.add_argument("--limit", type=int, default=100)
+    ls.add_argument("--start", type=int, default=0, help="initial pagination offset")
     add_common_args(ls)
     ls.set_defaults(func=cmd_list)
 

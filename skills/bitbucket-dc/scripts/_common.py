@@ -193,6 +193,53 @@ def emit_dry_run(intent, args, human):
         print(f"DRY RUN: {human}\n  (no request was sent)")
 
 
+def emit_list(items, args, human_lines, total=None, truncated=None, next_hint=None,
+              item_name="results", key="items", extra=None):
+    # type: (list, argparse.Namespace, List[str], Optional[int], Optional[bool], Optional[str], str, str, Optional[dict]) -> None
+    """Emit a paginated list result with a uniform truncation contract.
+
+    items:        items actually being returned (already limit-applied)
+    human_lines:  formatted lines for human mode, one per item (no summary/footer)
+    total:        true server-side total if known, else None
+    truncated:    override auto-detection (returned < total); pass explicitly
+                  when total is unknown but another signal (isLastPage,
+                  _links.next, hit the limit) says more results exist
+    next_hint:    full human-readable suggestion, required whenever truncated
+                  is True, e.g. "rerun with --limit 234 (or --start-at 50)"
+    item_name:    singular noun for messages, e.g. "issue", "pull request"
+    key:          JSON key items are nested under (keeps back-compat with
+                  existing consumers, e.g. "issues", "values", "results")
+    extra:        dict merged into the top-level JSON payload
+    """
+    returned = len(items)
+    if truncated is None:
+        truncated = bool(total is not None and returned < total)
+
+    hint = None
+    payload = {"returned": returned, "total": total, "truncated": truncated}
+    if truncated:
+        hint = next_hint or "rerun with a higher --limit"
+        payload["hint"] = hint
+        total_disp = total if total is not None else "an unknown number of additional"
+        sys.stderr.write(
+            f"notice: output truncated — {returned} of {total_disp} {item_name}(s) shown. {hint}\n"
+        )
+    payload[key] = items
+    if extra:
+        payload.update(extra)
+
+    if truncated:
+        total_disp = total if total is not None else "more"
+        summary = (f"{returned} of {total_disp} {item_name}(s) shown — MORE RESULTS EXIST. "
+                   f"{hint[0].upper() + hint[1:]}.")
+    else:
+        summary = f"{returned} {item_name}(s) (complete)"
+
+    body = "\n".join(human_lines)
+    human_text = (body + "\n\n" + summary) if body else summary
+    emit(payload, args, human=human_text)
+
+
 def die(err):
     # type: (Exception) -> None
     """Print error to stderr and exit with proper code."""

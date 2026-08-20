@@ -14,6 +14,7 @@ from _common import (  # noqa: E402
     add_common_args,
     emit,
     emit_dry_run,
+    emit_list,
     run,
     ValidationError,
 )
@@ -52,24 +53,35 @@ def cmd_boards_get(args):
          human=f"board {data.get('id')} {data.get('name')} (type={data.get('type')})")
 
 
+def _emit_agile_issues(args, data, label):
+    issues = data.get("issues", [])
+    total = data.get("total")
+    returned = len(issues)
+    if not issues:
+        emit({"returned": 0, "total": total, "truncated": False, "issues": []},
+             args, human=f"no issues {label}")
+        return
+    next_start = args.start_at + returned
+    hint = None
+    if total is not None:
+        hint = f"rerun with --limit {total} (or --start-at {next_start}) to fetch the rest"
+    lines = []
+    for raw in issues:
+        s = simplify_issue(raw)
+        lines.append(f"{s['key']:<14} [{s['status'] or '?':<12}] {s['summary']}")
+    emit_list([simplify_issue(i) for i in issues], args, lines,
+              total=total, next_hint=hint, item_name="issue", key="issues")
+
+
 def cmd_board_issues(args):
     client = get_jira(args)
-    params = {"maxResults": args.limit}
+    params = {"maxResults": args.limit, "startAt": args.start_at}
     if args.jql:
         params["jql"] = args.jql
     if args.fields:
         params["fields"] = args.fields
     data = _agile(client, f"board/{args.id}/issue", params=params)
-    issues = data.get("issues", [])
-    if args.json:
-        emit({"total": data.get("total", len(issues)), "issues": issues}, args)
-        return
-    lines = []
-    for raw in issues:
-        s = simplify_issue(raw)
-        lines.append(f"{s['key']:<14} [{s['status'] or '?':<12}] {s['summary']}")
-    emit({"total": data.get("total", len(issues)), "issues": [simplify_issue(i) for i in issues]},
-         args, human="\n".join(lines) + f"\n\n{len(issues)} issue(s) on board {args.id}")
+    _emit_agile_issues(args, data, f"on board {args.id}")
 
 
 # -----------------------------------------------------------------------------
@@ -78,16 +90,21 @@ def cmd_board_issues(args):
 
 def cmd_sprints_list(args):
     client = get_jira(args)
-    params = {"maxResults": args.limit}
+    params = {"maxResults": args.limit, "startAt": args.start_at}
     if args.state:
         params["state"] = args.state
     data = _agile(client, f"board/{args.board}/sprint", params=params)
     values = data.get("values", [])
-    if args.json:
-        emit(data, args)
+    if not values:
+        emit({"returned": 0, "total": None, "truncated": False, "values": []},
+             args, human=f"no sprints on board {args.board}")
         return
+    truncated = data.get("isLast") is False
+    next_start = args.start_at + len(values)
+    hint = f"rerun with --start-at {next_start} to fetch more" if truncated else None
     lines = [f"{s.get('id'):<6} {s.get('state'):<8} {s.get('name')}" for s in values]
-    emit(values, args, human="\n".join(lines) + f"\n\n{len(values)} sprint(s)")
+    emit_list(values, args, lines, total=None, truncated=truncated, next_hint=hint,
+              item_name="sprint", key="values")
 
 
 def cmd_sprints_get(args):
@@ -99,20 +116,11 @@ def cmd_sprints_get(args):
 
 def cmd_sprint_issues(args):
     client = get_jira(args)
-    params = {"maxResults": args.limit}
+    params = {"maxResults": args.limit, "startAt": args.start_at}
     if args.jql:
         params["jql"] = args.jql
     data = _agile(client, f"sprint/{args.id}/issue", params=params)
-    issues = data.get("issues", [])
-    if args.json:
-        emit({"total": data.get("total", len(issues)), "issues": issues}, args)
-        return
-    lines = []
-    for raw in issues:
-        s = simplify_issue(raw)
-        lines.append(f"{s['key']:<14} [{s['status'] or '?':<12}] {s['summary']}")
-    emit({"total": data.get("total", len(issues)), "issues": [simplify_issue(i) for i in issues]},
-         args, human="\n".join(lines) + f"\n\n{len(issues)} issue(s) in sprint {args.id}")
+    _emit_agile_issues(args, data, f"in sprint {args.id}")
 
 
 def cmd_sprint_create(args):
@@ -199,20 +207,11 @@ def cmd_backlog_move(args):
 
 def cmd_epic_issues(args):
     client = get_jira(args)
-    params = {"maxResults": args.limit}
+    params = {"maxResults": args.limit, "startAt": args.start_at}
     if args.jql:
         params["jql"] = args.jql
     data = _agile(client, f"epic/{args.id}/issue", params=params)
-    issues = data.get("issues", [])
-    if args.json:
-        emit({"total": data.get("total", len(issues)), "issues": issues}, args)
-        return
-    lines = []
-    for raw in issues:
-        s = simplify_issue(raw)
-        lines.append(f"{s['key']:<14} [{s['status'] or '?':<12}] {s['summary']}")
-    emit({"total": data.get("total", len(issues)), "issues": [simplify_issue(i) for i in issues]},
-         args, human="\n".join(lines) + f"\n\n{len(issues)} issue(s) under epic {args.id}")
+    _emit_agile_issues(args, data, f"under epic {args.id}")
 
 
 # -----------------------------------------------------------------------------
@@ -241,6 +240,7 @@ def main():
     bi.add_argument("--jql", help="extra JQL filter")
     bi.add_argument("--fields", help="comma-separated field list")
     bi.add_argument("--limit", type=int, default=50)
+    bi.add_argument("--start-at", type=int, default=0, help="initial pagination offset")
     add_common_args(bi)
     bi.set_defaults(func=cmd_board_issues)
 
@@ -249,6 +249,7 @@ def main():
     sl.add_argument("--board", required=True)
     sl.add_argument("--state", choices=["future", "active", "closed"])
     sl.add_argument("--limit", type=int, default=50)
+    sl.add_argument("--start-at", type=int, default=0, help="initial pagination offset")
     add_common_args(sl)
     sl.set_defaults(func=cmd_sprints_list)
 
@@ -261,6 +262,7 @@ def main():
     si.add_argument("id", help="sprint id")
     si.add_argument("--jql", help="extra JQL filter")
     si.add_argument("--limit", type=int, default=50)
+    si.add_argument("--start-at", type=int, default=0, help="initial pagination offset")
     add_common_args(si)
     si.set_defaults(func=cmd_sprint_issues)
 
@@ -300,6 +302,7 @@ def main():
     ei.add_argument("id", help="epic id or key")
     ei.add_argument("--jql")
     ei.add_argument("--limit", type=int, default=50)
+    ei.add_argument("--start-at", type=int, default=0, help="initial pagination offset")
     add_common_args(ei)
     ei.set_defaults(func=cmd_epic_issues)
 

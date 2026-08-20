@@ -126,9 +126,24 @@ class BitbucketClient:
 
     def paginate(self, path, params=None, limit=None, page_size=50):
         """Walk a Bitbucket paged response (isLastPage / nextPageStart)."""
+        items, _truncated, _next_start = self.paginate_meta(
+            path, params=params, limit=limit, page_size=page_size)
+        return items
+
+    def paginate_meta(self, path, params=None, limit=None, page_size=50):
+        """Walk a Bitbucket paged response (isLastPage / nextPageStart).
+
+        Returns ``(items, truncated, next_start)``. Bitbucket list endpoints
+        virtually never expose a real total count, so ``truncated`` means
+        "the server had more pages (isLastPage was false) when we stopped",
+        and ``next_start`` is the ``nextPageStart``/offset to resume from.
+        """
         collected = []
         params = dict(params or {})
         start = int(params.pop("start", 0) or 0)
+        last_start = start
+        is_last_page = True
+        next_page_start = None
         while True:
             page_params = dict(params)
             remaining = (limit - len(collected)) if limit is not None else page_size
@@ -140,15 +155,21 @@ class BitbucketClient:
             data = self.get(path, params=page_params)
             values = data.get("values", []) if isinstance(data, dict) else []
             collected.extend(values)
+            is_last_page = (not isinstance(data, dict)) or data.get("isLastPage", True)
+            next_page_start = data.get("nextPageStart") if isinstance(data, dict) else None
+            last_start = start
             if limit is not None and len(collected) >= limit:
                 break
-            if not isinstance(data, dict) or data.get("isLastPage", True):
+            if is_last_page:
                 break
-            next_start = data.get("nextPageStart")
-            if next_start is None or next_start == start:
+            if next_page_start is None or next_page_start == start:
                 break
-            start = next_start
-        return collected[:limit] if limit is not None else collected
+            start = next_page_start
+
+        collected = collected[:limit] if limit is not None else collected
+        truncated = not is_last_page
+        next_start = next_page_start if (next_page_start is not None and truncated) else (last_start + len(collected))
+        return collected, bool(truncated), next_start
 
 
 def _extract_bb_error(resp):

@@ -13,7 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from _common import (  # noqa: E402
-    add_common_args, emit, emit_dry_run, run, ValidationError,
+    add_common_args, emit, emit_dry_run, emit_list, run, ValidationError,
 )
 from _bitbucket import get_bitbucket  # noqa: E402
 
@@ -33,14 +33,33 @@ def _allowed_perms(args) -> tuple:
 
 def cmd_list(args):
     client = get_bitbucket(args)
-    users = client.paginate(_scope_path(args, "/users"), limit=args.limit)
-    groups = client.paginate(_scope_path(args, "/groups"), limit=args.limit)
-    out = {"users": users, "groups": groups,
-           "scope": "repo" if args.repo else "project",
-           "project": args.project, "repo": args.repo}
-    if args.json:
-        emit(out, args)
-        return
+    users, users_truncated, users_next = client.paginate_meta(
+        _scope_path(args, "/users"), limit=args.limit)
+    groups, groups_truncated, groups_next = client.paginate_meta(
+        _scope_path(args, "/groups"), limit=args.limit)
+    truncated = users_truncated or groups_truncated
+    returned = len(users) + len(groups)
+
+    hints = []
+    if users_truncated:
+        hints.append(f"users: rerun with a higher --limit (or --start {users_next})")
+    if groups_truncated:
+        hints.append(f"groups: rerun with a higher --limit (or --start {groups_next})")
+    hint = "; ".join(hints) if hints else None
+
+    payload = {
+        "returned": returned, "total": None, "truncated": truncated,
+        "users": users, "groups": groups,
+        "scope": "repo" if args.repo else "project",
+        "project": args.project, "repo": args.repo,
+    }
+    if truncated and hint:
+        payload["hint"] = hint
+        sys.stderr.write(
+            f"notice: output truncated — {returned} permission grant(s) shown across "
+            f"users/groups. {hint}\n"
+        )
+
     lines = ["# Users:"]
     for u in users:
         lines.append(f"  {u.get('user', {}).get('name'):<20} {u.get('permission')}")
@@ -48,7 +67,10 @@ def cmd_list(args):
     lines.append("# Groups:")
     for g in groups:
         lines.append(f"  {g.get('group', {}).get('name'):<20} {g.get('permission')}")
-    emit(out, args, human="\n".join(lines))
+    if truncated:
+        lines.append("")
+        lines.append(f"MORE RESULTS EXIST. {hint}.")
+    emit(payload, args, human="\n".join(lines))
 
 
 def cmd_grant_user(args):

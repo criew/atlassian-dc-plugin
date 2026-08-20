@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from _common import add_common_args, emit, run  # noqa: E402
+from _common import add_common_args, emit, emit_list, run  # noqa: E402
 from _confluence import get_confluence  # noqa: E402
 
 
@@ -61,6 +61,7 @@ def main():
     if args.expand:
         next_params["expand"] = args.expand
     total = None
+    more_signal = False  # last-seen _links.next or a full page, when total is unknown
 
     while next_path is not None and len(collected) < args.limit:
         if next_params is not None:
@@ -70,18 +71,22 @@ def main():
         if total is None:
             total = data.get("totalSize") if isinstance(data, dict) else None
         if not results:
+            more_signal = False
             break
         collected.extend(results)
         links = (data.get("_links") or {}) if isinstance(data, dict) else {}
         nxt = links.get("next")
         if nxt:
+            more_signal = True
             next_path = nxt
             next_params = None
         else:
             size = data.get("size", len(results)) if isinstance(data, dict) else len(results)
             page_limit = (next_params or {}).get("limit") if next_params else args.page_size
             if size < (page_limit or args.page_size):
+                more_signal = False
                 break
+            more_signal = True
             current_start = (next_params or {}).get("start", args.start) if next_params else args.start
             next_params = {
                 "cql": cql,
@@ -93,20 +98,33 @@ def main():
 
     collected = collected[:args.limit]
     simplified = [_simplify_result(r) for r in collected]
+    returned = len(simplified)
+    next_start = args.start + returned
 
-    if args.json:
-        emit({"total": total if total is not None else len(simplified),
-              "results": collected}, args)
-        return
+    if total is not None:
+        truncated = returned < total
+    else:
+        truncated = more_signal and returned >= args.limit
+
+    hint = None
+    if truncated:
+        if total is not None:
+            hint = f"rerun with --limit {total} (or --start {next_start}) to fetch the rest"
+        else:
+            hint = f"rerun with a higher --limit (or --start {next_start}) to fetch more"
 
     if not simplified:
-        emit({"total": 0, "results": []}, args, human="no results found")
+        emit({"returned": 0, "total": total, "truncated": False, "results": []},
+             args, human="no results found")
         return
 
     lines = [f"{s['id'] or '?':<10} [{s['type'] or '?':<8}] {s['space_key'] or '?':<8} {s['title']}"
              for s in simplified]
-    emit({"total": total if total is not None else len(simplified), "results": simplified},
-         args, human="\n".join(lines) + f"\n\n{len(simplified)} result(s)")
+    emit_list(
+        simplified, args, lines,
+        total=total, truncated=truncated, next_hint=hint,
+        item_name="result", key="results",
+    )
 
 
 if __name__ == "__main__":

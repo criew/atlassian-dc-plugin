@@ -7,7 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from _common import add_common_args, emit, run  # noqa: E402
+from _common import add_common_args, emit, emit_list, run  # noqa: E402
 from _confluence import get_confluence  # noqa: E402
 
 
@@ -30,18 +30,19 @@ def cmd_search(args):
            f'OR user.email ~ "{args.query}"')
     data = client.get("search", params={"cql": cql, "limit": args.limit})
     results = (data or {}).get("results", [])
-    if args.json:
-        emit(data, args)
-        return
     if not results:
-        emit([], args, human="no users found")
+        emit({"returned": 0, "total": None, "truncated": False, "results": []},
+             args, human="no users found")
         return
+    truncated = len(results) >= args.limit
+    hint = "rerun with a higher --limit" if truncated else None
     lines = []
     for r in results:
         u = r.get("user") or {}
         lines.append(f"{u.get('username', '?'):<20} {u.get('displayName', '')} "
                      f"<{u.get('email', '')}>")
-    emit(results, args, human="\n".join(lines) + f"\n\n{len(results)} user(s)")
+    emit_list(results, args, lines, total=None, truncated=truncated, next_hint=hint,
+              item_name="user", key="results")
 
 
 def main():

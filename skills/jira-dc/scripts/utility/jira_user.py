@@ -11,6 +11,7 @@ from _common import (  # noqa: E402
     add_common_args,
     emit,
     emit_dry_run,
+    emit_list,
     run,
 )
 from _jira import get_jira  # noqa: E402
@@ -24,12 +25,19 @@ def cmd_whoami(args):
 
 def cmd_search(args):
     client = get_jira(args)
-    data = client.get("user/search", params={"username": args.query, "maxResults": args.limit})
-    if args.json:
-        emit(data, args)
+    data = client.get("user/search", params={
+        "username": args.query, "startAt": args.start_at, "maxResults": args.limit,
+    })
+    if not data:
+        emit({"returned": 0, "total": None, "truncated": False, "values": []},
+             args, human="no users found")
         return
+    truncated = len(data) >= args.limit
+    next_start = args.start_at + len(data)
+    hint = f"rerun with a higher --limit (or --start-at {next_start}) to fetch more" if truncated else None
     lines = [f"{u.get('name'):<20} {u.get('displayName')} <{u.get('emailAddress', '')}>" for u in data]
-    emit(data, args, human="\n".join(lines) or "no users found")
+    emit_list(data, args, lines, total=None, truncated=truncated, next_hint=hint,
+              item_name="user", key="values")
 
 
 def cmd_create(args):
@@ -92,7 +100,7 @@ def cmd_delete(args):
 
 def cmd_assignable(args):
     client = get_jira(args)
-    params = {"maxResults": args.limit}
+    params = {"maxResults": args.limit, "startAt": args.start_at}
     if args.issue_key:
         params["issueKey"] = args.issue_key
     elif args.project:
@@ -103,12 +111,17 @@ def cmd_assignable(args):
     if args.query:
         params["username"] = args.query
     data = client.get("user/assignable/search", params=params)
-    if args.json:
-        emit(data, args)
+    if not data:
+        emit({"returned": 0, "total": None, "truncated": False, "values": []},
+             args, human="no assignable users found")
         return
+    truncated = len(data) >= args.limit
+    next_start = args.start_at + len(data)
+    hint = f"rerun with a higher --limit (or --start-at {next_start}) to fetch more" if truncated else None
     lines = [f"{u.get('name'):<20} {u.get('displayName'):<25} <{u.get('emailAddress', '')}>"
              for u in data]
-    emit(data, args, human="\n".join(lines) or "no assignable users found")
+    emit_list(data, args, lines, total=None, truncated=truncated, next_hint=hint,
+              item_name="assignable user", key="values")
 
 
 def main():
@@ -123,6 +136,7 @@ def main():
     s = sub.add_parser("search", help="search users by name/email")
     s.add_argument("query")
     s.add_argument("--limit", type=int, default=20)
+    s.add_argument("--start-at", type=int, default=0, help="initial pagination offset")
     add_common_args(s)
     s.set_defaults(func=cmd_search)
 
@@ -154,6 +168,7 @@ def main():
     grp.add_argument("--project", help="users assignable in this project")
     a.add_argument("--query", help="username substring filter")
     a.add_argument("--limit", type=int, default=50)
+    a.add_argument("--start-at", type=int, default=0, help="initial pagination offset")
     add_common_args(a)
     a.set_defaults(func=cmd_assignable)
 

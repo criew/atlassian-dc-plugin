@@ -7,24 +7,25 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from _common import add_common_args, emit, emit_dry_run, run  # noqa: E402
-from _confluence import get_confluence, paginate  # noqa: E402
+from _common import add_common_args, emit, emit_dry_run, emit_list, run  # noqa: E402
+from _confluence import get_confluence, paginate_meta  # noqa: E402
 
 
 def cmd_list(args):
     client = get_confluence(args)
-    params: dict = {}
+    params: dict = {"start": args.start}
     if args.type:
         params["type"] = args.type
-    spaces = paginate(client, "space", params=params, limit=args.limit, page_size=25)
-    if args.json:
-        emit({"results": spaces, "size": len(spaces)}, args)
-        return
+    spaces, truncated, next_start = paginate_meta(
+        client, "space", params=params, limit=args.limit, page_size=25)
     if not spaces:
-        emit([], args, human="no spaces found")
+        emit({"returned": 0, "total": None, "truncated": False, "results": []},
+             args, human="no spaces found")
         return
+    hint = f"rerun with a higher --limit (or --start {next_start}) to fetch more" if truncated else None
     lines = [f"{s.get('key'):<12} {s.get('name')}  ({s.get('type')})" for s in spaces]
-    emit(spaces, args, human="\n".join(lines) + f"\n\n{len(spaces)} space(s)")
+    emit_list(spaces, args, lines, total=None, truncated=truncated, next_hint=hint,
+              item_name="space", key="results")
 
 
 def cmd_get(args):
@@ -68,6 +69,7 @@ def main():
     ls = sub.add_parser("list", help="list spaces")
     ls.add_argument("--type", choices=["global", "personal"])
     ls.add_argument("--limit", type=int, default=100)
+    ls.add_argument("--start", type=int, default=0, help="initial pagination offset")
     add_common_args(ls)
     ls.set_defaults(func=cmd_list)
 

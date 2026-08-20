@@ -11,6 +11,7 @@ from _common import (  # noqa: E402
     add_common_args,
     emit,
     emit_dry_run,
+    emit_list,
     run,
 )
 from _jira import get_jira  # noqa: E402
@@ -23,24 +24,36 @@ def cmd_list(args):
         params["query"] = args.query
     data = client.get("groups/picker", params=params)
     groups = data.get("groups", [])
-    if args.json:
-        emit(data, args)
+    if not groups:
+        emit({"returned": 0, "total": data.get("total"), "truncated": False, "values": []},
+             args, human="no groups found")
         return
+    total = data.get("total")
+    hint = "rerun with a higher --limit to fetch the rest" if total is not None else None
     lines = [g.get("name", "") for g in groups]
-    emit(groups, args, human="\n".join(lines) + f"\n\n{len(groups)} group(s)")
+    emit_list(groups, args, lines, total=total, next_hint=hint,
+              item_name="group", key="values")
 
 
 def cmd_members(args):
     client = get_jira(args)
-    params = {"groupname": args.name, "maxResults": args.limit, "includeInactiveUsers": "false"}
+    params = {"groupname": args.name, "startAt": args.start_at,
+              "maxResults": args.limit, "includeInactiveUsers": "false"}
     data = client.get("group/member", params=params)
     members = data.get("values", [])
-    if args.json:
-        emit(data, args)
+    if not members:
+        emit({"returned": 0, "total": data.get("total"), "truncated": False, "values": []},
+             args, human=f"no members of {args.name}")
         return
+    total = data.get("total")
+    next_start = args.start_at + len(members)
+    hint = None
+    if total is not None:
+        hint = f"rerun with --limit {total} (or --start-at {next_start}) to fetch the rest"
     lines = [f"{u.get('name'):<20} {u.get('displayName'):<25} <{u.get('emailAddress', '')}>"
              for u in members]
-    emit(members, args, human="\n".join(lines) + f"\n\n{len(members)} member(s) of {args.name}")
+    emit_list(members, args, lines, total=total, next_hint=hint,
+              item_name="member", key="values")
 
 
 def cmd_create(args):
@@ -113,6 +126,7 @@ def main():
     m = sub.add_parser("members", help="list members of a group")
     m.add_argument("--name", required=True)
     m.add_argument("--limit", type=int, default=50)
+    m.add_argument("--start-at", type=int, default=0, help="initial pagination offset")
     add_common_args(m)
     m.set_defaults(func=cmd_members)
 

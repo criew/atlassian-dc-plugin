@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from _common import add_common_args, emit, run  # noqa: E402
+from _common import add_common_args, emit, emit_list, run  # noqa: E402
 from _bitbucket import get_bitbucket  # noqa: E402
 
 
@@ -36,20 +36,25 @@ def cmd_whoami(args):
 
 def cmd_search(args):
     client = get_bitbucket(args)
-    params = {"filter": args.query, "limit": args.limit}
+    params = {"filter": args.query, "start": args.start, "limit": args.limit}
     data = client.get("users", params=params)
     values = data.get("values", []) if isinstance(data, dict) else []
-    if args.json:
-        emit(data, args)
-        return
     if not values:
-        emit(data, args, human="no users found")
+        emit({"returned": 0, "total": None, "truncated": False, "values": []},
+             args, human="no users found")
         return
+    is_last_page = (not isinstance(data, dict)) or data.get("isLastPage", True)
+    truncated = not is_last_page
+    next_start = data.get("nextPageStart") if isinstance(data, dict) else None
+    if next_start is None:
+        next_start = args.start + len(values)
+    hint = f"rerun with a higher --limit (or --start {next_start}) to fetch more" if truncated else None
     lines = [
         f"{u.get('name', ''):<20} {u.get('displayName', '')} <{u.get('emailAddress', '')}>"
         for u in values
     ]
-    emit(values, args, human="\n".join(lines) + f"\n\n{len(values)} user(s)")
+    emit_list(values, args, lines, total=None, truncated=truncated, next_hint=hint,
+              item_name="user", key="values")
 
 
 def main():
@@ -64,6 +69,7 @@ def main():
     s = sub.add_parser("search", help="search users")
     s.add_argument("query")
     s.add_argument("--limit", type=int, default=20)
+    s.add_argument("--start", type=int, default=0, help="initial pagination offset")
     add_common_args(s)
     s.set_defaults(func=cmd_search)
 

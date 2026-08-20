@@ -9,13 +9,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from _common import add_common_args, emit, emit_dry_run, run  # noqa: E402
+from _common import add_common_args, emit, emit_dry_run, emit_list, run  # noqa: E402
 from _bitbucket import get_bitbucket  # noqa: E402
 
 
 def cmd_list(args):
     client = get_bitbucket(args)
-    params = {}
+    params = {"start": args.start}
     if args.filter:
         params["filterText"] = args.filter
     if args.order:
@@ -23,16 +23,19 @@ def cmd_list(args):
     if args.details:
         params["details"] = "true"
     path = f"projects/{args.project}/repos/{args.repo}/branches"
-    values = client.paginate(path, params=params, limit=args.limit)
-    if args.json:
-        emit({"size": len(values), "values": values}, args)
+    values, truncated, next_start = client.paginate_meta(path, params=params, limit=args.limit)
+    if not values:
+        emit({"returned": 0, "total": None, "truncated": False, "values": []},
+             args, human="no branches found")
         return
+    hint = f"rerun with a higher --limit (or --start {next_start}) to fetch more" if truncated else None
     lines = [
         f"{b.get('displayId', ''):<40} {b.get('latestCommit', '')[:10]} "
         f"{'(default)' if b.get('isDefault') else ''}"
         for b in values
     ]
-    emit(values, args, human="\n".join(lines) + f"\n\n{len(values)} branch(es)")
+    emit_list(values, args, lines, total=None, truncated=truncated, next_hint=hint,
+              item_name="branch", key="values")
 
 
 def cmd_default(args):
@@ -96,6 +99,7 @@ def main():
     ls.add_argument("--details", action="store_true",
                     help="include latest commit info")
     ls.add_argument("--limit", type=int, default=100)
+    ls.add_argument("--start", type=int, default=0, help="initial pagination offset")
     add_common_args(ls)
     ls.set_defaults(func=cmd_list)
 

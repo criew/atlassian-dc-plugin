@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from _common import add_common_args, emit, run  # noqa: E402
+from _common import add_common_args, emit, emit_list, run  # noqa: E402
 from _bitbucket import get_bitbucket  # noqa: E402
 
 
@@ -25,7 +25,7 @@ def _summary(c: dict) -> dict:
 
 def cmd_list(args):
     client = get_bitbucket(args)
-    params: dict = {}
+    params: dict = {"start": args.start}
     until = args.until or args.branch
     if until:
         params["until"] = until
@@ -36,16 +36,19 @@ def cmd_list(args):
     if args.merges:
         params["merges"] = args.merges
     path = f"projects/{args.project}/repos/{args.repo}/commits"
-    values = client.paginate(path, params=params, limit=args.limit)
-    if args.json:
-        emit({"size": len(values), "values": values}, args)
+    values, truncated, next_start = client.paginate_meta(path, params=params, limit=args.limit)
+    if not values:
+        emit({"returned": 0, "total": None, "truncated": False, "values": []},
+             args, human="no commits found")
         return
+    hint = f"rerun with a higher --limit (or --start {next_start}) to fetch more" if truncated else None
     lines = []
     for c in values:
         s = _summary(c)
         lines.append(f"{(s['displayId'] or '')[:10]:<11} {s['author'] or '?':<20} {s['message']}")
-    emit([_summary(c) for c in values], args,
-         human="\n".join(lines) + f"\n\n{len(values)} commit(s)")
+    emit_list([_summary(c) for c in values], args, lines,
+              total=None, truncated=truncated, next_hint=hint,
+              item_name="commit", key="values")
 
 
 def cmd_get(args):
@@ -70,6 +73,7 @@ def main():
     ls.add_argument("--path", help="filter to commits touching this path")
     ls.add_argument("--merges", choices=["include", "exclude", "only"])
     ls.add_argument("--limit", type=int, default=25)
+    ls.add_argument("--start", type=int, default=0, help="initial pagination offset")
     add_common_args(ls)
     ls.set_defaults(func=cmd_list)
 

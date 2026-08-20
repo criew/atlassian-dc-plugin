@@ -110,13 +110,28 @@ def get_confluence(args):
 def paginate(client, path, params=None, limit=50, page_size=50):
     # type: (ConfluenceClient, str, Optional[dict], int, int) -> List[dict]
     """Walk ``_links.next`` pages up to ``limit`` results."""
+    items, _truncated, _next_start = paginate_meta(client, path, params=params,
+                                                     limit=limit, page_size=page_size)
+    return items
+
+
+def paginate_meta(client, path, params=None, limit=50, page_size=50):
+    # type: (ConfluenceClient, str, Optional[dict], int, int) -> tuple
+    """Walk ``_links.next`` pages up to ``limit`` results.
+
+    Returns ``(items, truncated, next_start)``. Confluence's ``content/search``
+    (and most list endpoints) do not expose a total count, so ``truncated`` is
+    inferred from ``_links.next``/a full last page still being present when the
+    ``limit`` cap was hit. ``next_start`` is the offset to resume from.
+    """
     collected = []
     params = dict(params or {})
-    params.setdefault("start", 0)
+    start0 = params.setdefault("start", 0)
     params["limit"] = min(page_size, limit)
 
     next_path = path  # type: Optional[str]
     next_params = params  # type: Optional[dict]
+    more_signal = False
 
     while next_path is not None and len(collected) < limit:
         if next_params is not None:
@@ -124,11 +139,13 @@ def paginate(client, path, params=None, limit=50, page_size=50):
         data = client.get(next_path, params=next_params)
         results = data.get("results", []) if isinstance(data, dict) else []
         if not results:
+            more_signal = False
             break
         collected.extend(results)
         links = (data.get("_links") or {}) if isinstance(data, dict) else {}
         nxt = links.get("next")
         if nxt:
+            more_signal = True
             next_path = nxt
             next_params = None
         else:
@@ -137,6 +154,11 @@ def paginate(client, path, params=None, limit=50, page_size=50):
             next_params = dict(next_params or params)
             next_params["start"] = start + size
             if size < (params.get("limit") or page_size):
+                more_signal = False
                 break
+            more_signal = True
 
-    return collected[:limit]
+    collected = collected[:limit]
+    truncated = more_signal and len(collected) >= limit
+    next_start = start0 + len(collected)
+    return collected, truncated, next_start

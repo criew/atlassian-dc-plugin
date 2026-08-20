@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from _common import (  # noqa: E402
-    add_common_args, emit, emit_dry_run, run, ValidationError,
+    add_common_args, emit, emit_dry_run, emit_list, run, ValidationError,
 )
 from _bitbucket import get_bitbucket  # noqa: E402
 
@@ -22,14 +22,18 @@ VALID_STATES = ("SUCCESSFUL", "INPROGRESS", "FAILED", "CANCELLED")
 def cmd_list(args):
     client = get_bitbucket(args)
     data = client.get(f"/rest/build-status/1.0/commits/{args.commit}",
-                      params={"limit": args.limit})
+                      params={"start": args.start, "limit": args.limit})
     values = data.get("values", []) if isinstance(data, dict) else []
-    if args.json:
-        emit(data, args)
-        return
     if not values:
-        emit([], args, human=f"no build statuses for commit {args.commit}")
+        emit({"returned": 0, "total": None, "truncated": False, "values": []},
+             args, human=f"no build statuses for commit {args.commit}")
         return
+    is_last_page = (not isinstance(data, dict)) or data.get("isLastPage", True)
+    truncated = not is_last_page
+    next_start = data.get("nextPageStart") if isinstance(data, dict) else None
+    if next_start is None:
+        next_start = args.start + len(values)
+    hint = f"rerun with a higher --limit (or --start {next_start}) to fetch more" if truncated else None
     lines = []
     for b in values:
         when = (b.get("dateAdded") or b.get("date") or "")
@@ -37,7 +41,8 @@ def cmd_list(args):
             from datetime import datetime
             when = datetime.fromtimestamp(when / 1000).isoformat(timespec="seconds")
         lines.append(f"{b.get('state'):<11} {b.get('key'):<25} {b.get('name'):<30} {b.get('url')}")
-    emit(values, args, human="\n".join(lines) + f"\n\n{len(values)} build status(es)")
+    emit_list(values, args, lines, total=None, truncated=truncated, next_hint=hint,
+              item_name="build status", key="values")
 
 
 def cmd_post(args):
@@ -74,6 +79,7 @@ def main():
     ls = sub.add_parser("list", help="list build statuses for a commit")
     ls.add_argument("commit", help="full commit SHA")
     ls.add_argument("--limit", type=int, default=50)
+    ls.add_argument("--start", type=int, default=0, help="initial pagination offset")
     add_common_args(ls)
     ls.set_defaults(func=cmd_list)
 
