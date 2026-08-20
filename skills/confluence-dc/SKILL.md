@@ -34,7 +34,9 @@ needs a `confluence` block (`url` and `token` — Personal Access Token, PAT-onl
 
 Confluence stores page bodies in **storage format** — XHTML such as
 `<p>...</p>`, `<h2>...</h2>`, `<ac:structured-macro ...>...</ac:structured-macro>`.
-All `--content` / `--body` arguments expect storage-format markup, not Markdown.
+`confluence_page.py create/update --content` defaults to storage format; pass
+`--format wiki` to write Confluence wiki markup instead (server-converted before
+saving). See "Formatting" below for the syntax and pitfalls, not Markdown.
 For ready-to-use page templates see `variant1/confluence-server-api/templates/page-templates.md`.
 
 ## Page updates and versioning
@@ -57,8 +59,8 @@ Subcommands:
 ### scripts/core/confluence_page.py
 Subcommands:
 - `get --id ID` *or* `get --title "..." --space KEY` — fetch a page (with body in storage format)
-- `create --space KEY --title "..." --content "<p>...</p>" [--parent ID] [--type page|blogpost]`
-- `update ID [--title ...] [--content ...]` — version bump is automatic
+- `create --space KEY --title "..." --content "<p>...</p>" [--parent ID] [--type page|blogpost] [--format storage|wiki]`
+- `update ID [--title ...] [--content ...] [--format storage|wiki]` — version bump is automatic
 - `delete ID` (moves to trash; pass `--purge` to permanently delete trashed content)
 - `children ID [--limit N]` — direct child pages
 - `ancestors ID` — parent chain
@@ -115,8 +117,59 @@ If the user wants a standalone script (not a one-off call), prefer importing fro
 so the multi-instance logic is reused. Never inline tokens or URLs.
 
 ## Formatting
-IMPORTANT: Always use the Atlassian/Jira Wiki Markup language for page content and comments to ensure correct rendering of formatting and technical terms.
 
+Page bodies are **Storage Format** (XHTML). Raw Markdown either produces
+structureless text, or — for any bare `<` or `&` — an HTTP 400
+"Error parsing xhtml".
+
+Two allowed ways to write `--content`:
+- **`--format wiki`** (see `confluence_page.py create/update`) with Confluence wiki
+  markup — recommended for simple content, the server converts it to storage format.
+- **Storage-format XHTML directly** — full control (macros), default format.
+
+Wiki markup (with `--format wiki`):
+
+| Goal | Syntax |
+|---|---|
+| Heading | `h1.` / `h2.` |
+| Bold | `*fett*` |
+| Italic | `_kursiv_` |
+| Monospace | `{{monospace}}` |
+| Bullet list | `* Punkt` |
+| Numbered list | `# Punkt` |
+| Table | `\|\|H1\|\|H2\|\|` |
+| Link | `[Text\|url]` |
+| Code block | `{code:python}…{code}` |
+| Panels | `{info}…{info}`, `{warning}…{warning}`, `{note}…{note}` |
+
+Storage-format XHTML building blocks: `<h2>`, `<strong>`/`<em>`, `<ul><li>`,
+`<ac:structured-macro ac:name="code">` with `<![CDATA[…]]>`, info-panel macro pattern
+below. Escape every literal `<`, `>`, `&` in body text.
+
+Minimal example, both ways:
+```
+# --format wiki
+h1. Titel
+
+*fett* und _kursiv_.
+
+{info}Wichtiger Hinweis{info}
+
+# --format storage (default)
+<h1>Titel</h1>
+<p><strong>fett</strong> und <em>kursiv</em>.</p>
+<ac:structured-macro ac:name="info">
+<ac:rich-text-body><p>Wichtiger Hinweis</p></ac:rich-text-body>
+</ac:structured-macro>
+```
+
+## Truncated results
+
+List/search results can be cut off. After EVERY list/search call, check the
+JSON field `"truncated": true` (human mode: a trailing "MORE RESULTS EXIST"
+line; stderr: `notice: output truncated`). If present, follow the given hint
+(`--limit`/`--start`) and fetch the rest BEFORE answering. If you
+deliberately skip that, tell the user the list is incomplete.
 
 - For destructive operations (`delete`), prefer `--dry-run` first when the user is
   uncertain or the page id was inferred rather than explicitly given.

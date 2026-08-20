@@ -12,6 +12,7 @@ from _common import (  # noqa: E402
     emit,
     emit_dry_run,
     run,
+    warn_if_wrong_markup,
 )
 from _jira import get_jira  # noqa: E402
 
@@ -32,6 +33,7 @@ def cmd_list(args):
 
 
 def cmd_add(args):
+    warn_if_wrong_markup(args.body, "jira")
     body = {"body": args.body}
     if args.dry_run:
         emit_dry_run(

@@ -13,6 +13,7 @@ from _common import (  # noqa: E402
     emit,
     emit_dry_run,
     run,
+    warn_if_wrong_markup,
     ValidationError,
 )
 from _jira import get_jira  # noqa: E402
@@ -71,6 +72,7 @@ def cmd_add(args):
     seconds = parse_time_spent(args.time_spent)
     body: dict = {"timeSpentSeconds": seconds}
     if args.comment:
+        warn_if_wrong_markup(args.comment, "jira")
         body["comment"] = args.comment
     if args.started:
         body["started"] = _normalize_jira_timestamp(args.started)
@@ -92,6 +94,7 @@ def cmd_update(args):
     if args.time_spent is not None:
         body["timeSpentSeconds"] = parse_time_spent(args.time_spent)
     if args.comment is not None:
+        warn_if_wrong_markup(args.comment, "jira")
         body["comment"] = args.comment
     if not body:
         raise ValidationError("no field to update (--time-spent or --comment required)")

@@ -137,8 +137,22 @@ If the user wants a standalone script (not a one-off call), prefer importing fro
 inline tokens or URLs.
 
 ## Formatting
-IMPORTANT: Always use the Atlassian/Jira Wiki Markup language for pull request descriptions and comments to ensure correct rendering of formatting and technical terms.
 
+PR descriptions and comments are **Markdown** (CommonMark) — Markdown is CORRECT here.
+
+Works: headings, `**bold**`, code fences with a language, GFM tables, nested
+lists (2-space indent), `~~strikethrough~~`, `> quotes`.
+
+Does NOT work: task lists `- [ ]` (stay literal text), raw HTML (escaped), Jira
+wiki syntax (`{code}`, `\|\|tables\|\|`, `h2.`).
+
+## Truncated results
+
+List/search results can be cut off. After EVERY list/search call, check the
+JSON field `"truncated": true` (human mode: a trailing "MORE RESULTS EXIST"
+line; stderr: `notice: output truncated`). If present, follow the given hint
+(`--limit`) and fetch the rest BEFORE answering. If you deliberately skip
+that, tell the user the list is incomplete.
 
 - For destructive operations (`delete`, `decline`, `merge`), prefer `--dry-run` first
   when the user is uncertain or the repo/PR id was inferred rather than explicitly given.

@@ -13,6 +13,7 @@ from _common import (  # noqa: E402
     emit,
     emit_dry_run,
     run,
+    warn_if_wrong_markup,
     ValidationError,
 )
 from _jira import get_jira, simplify_issue  # noqa: E402
@@ -36,6 +37,7 @@ def cmd_create(args):
         "issuetype": {"name": args.type},
     }
     if args.description:
+        warn_if_wrong_markup(args.description, "jira")
         fields["description"] = args.description
     if args.priority:
         fields["priority"] = {"name": args.priority}
@@ -67,6 +69,7 @@ def cmd_update(args):
     if args.summary is not None:
         fields["summary"] = args.summary
     if args.description is not None:
+        warn_if_wrong_markup(args.description, "jira")
         fields["description"] = args.description
     if args.priority is not None:
         fields["priority"] = {"name": args.priority}

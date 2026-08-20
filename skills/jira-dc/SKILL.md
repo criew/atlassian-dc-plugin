@@ -133,8 +133,52 @@ If the user wants a standalone script (not a one-off call), prefer importing fro
 Never inline tokens or URLs.
 
 ## Formatting
-IMPORTANT: Always use the Atlassian/Jira Wiki Markup language for issue descriptions and comments to ensure correct rendering of formatting and technical terms.
 
+Jira renders **Wiki Markup**, NEVER Markdown. Applies to `description`, comments, worklog comments.
+
+| Goal | Jira syntax | NEVER (Markdown) |
+|---|---|---|
+| Heading | `h2. Titel` | `## Titel` — see warning below |
+| Bold | `*fett*` | `**fett**` → literal asterisks stay in the text |
+| Italic | `_kursiv_` | `*kursiv*` → renders BOLD in Jira |
+| Inline code | `{{code}}` | `` `code` `` → literal backticks |
+| Code block | `{code:python}...{code}` | ` ```...``` ` → stays literal text, no highlighting |
+| Bullet list | `* Punkt`, nested `** Unterpunkt` | `- Punkt` → literal dash |
+| Numbered list | `# Punkt` | `1. Punkt` → not recognized |
+| Table | `\|\|H1\|\|H2\|\|` header, `\|a\|b\|` data | GFM `\| --- \|` separator row |
+| Link | `[Text\|https://…]` | `[Text](https://…)` → not recognized |
+| Quote | `{quote}…{quote}` | `> Text` → literal `>` |
+| Unformatted | `{noformat}…{noformat}` | — |
+
+**WARNING**: a `#` at the start of a line is ALWAYS turned into a numbered list — a
+Markdown heading `# Titel` silently becomes a list item, not a heading. This is the
+single most dangerous mistake because the result still looks structurally plausible.
+
+Scripts print a stderr warning (`warning: text looks like Markdown...`) when a
+description/comment/worklog body matches an unambiguous Markdown pattern
+(fenced code, `**bold**`, `[text](url)`, `## heading`). It never blocks the call.
+
+Minimal example (issue description):
+```
+h2. Zusammenfassung
+
+Dies ist *fett* und {{monospace}}.
+
+* Punkt eins
+* Punkt zwei
+
+{code:python}
+print("hi")
+{code}
+```
+
+## Truncated results
+
+List/search results can be cut off. After EVERY list/search call, check the
+JSON field `"truncated": true` (human mode: a trailing "MORE RESULTS EXIST"
+line; stderr: `notice: output truncated`). If present, follow the given hint
+(`--limit`/`--start-at`) and fetch the rest BEFORE answering. If you
+deliberately skip that, tell the user the list is incomplete.
 
 - For destructive operations (`delete`, `transition`), prefer `--dry-run` first when the
   user is uncertain or the issue key was inferred rather than explicitly given.

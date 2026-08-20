@@ -13,9 +13,42 @@ from _common import (  # noqa: E402
     add_common_args,
     emit,
     emit_dry_run,
+    emit_list,
     run,
+    warn_if_wrong_markup,
 )
-from _confluence import get_confluence, paginate  # noqa: E402
+from _confluence import get_confluence, paginate_meta  # noqa: E402
+
+
+def _maybe_warn_format(content, fmt):
+    """Advisory stderr warning for --format storage bodies that look wrong.
+
+    Only applies to --format storage (the default): --format wiki content is
+    expected to be wiki markup, which this heuristic must not flag. Warn if
+    the body has no '<' at all (can't be storage XHTML) or matches an
+    unambiguous Markdown pattern.
+    """
+    if fmt != "storage" or not content:
+        return
+    warn_if_wrong_markup(content, "confluence", force=("<" not in content))
+
+
+def _convert_wiki_to_storage(client, content):
+    # type: (object, str) -> str
+    """Convert Confluence wiki markup to storage XHTML server-side via
+    POST /rest/api/contentbody/convert/storage. Raises ValidationError with
+    a clear message if the converter rejects the input."""
+    try:
+        result = client.post(
+            "contentbody/convert/storage",
+            {"value": content, "representation": "wiki"},
+        )
+    except ValidationError as e:
+        raise ValidationError(f"wiki markup could not be converted to storage format: {e}")
+    value = (result or {}).get("value")
+    if value is None:
+        raise ValidationError("wiki-to-storage conversion returned no value")
+    return value
 
 
 def _simplify_page(p: dict) -> dict:
@@ -63,13 +96,41 @@ def cmd_get(args):
 
 def cmd_create(args):
     page_type = args.type or "page"
+    _maybe_warn_format(args.content, args.format)
+
+    if args.dry_run:
+        intent_body = {
+            "type": page_type,
+            "title": args.title,
+            "space": {"key": args.space},
+            "body": {"storage": {
+                "value": args.content if args.format == "storage"
+                          else "<converted from --format wiki at run time>",
+                "representation": "storage",
+            }},
+        }
+        if args.parent:
+            intent_body["ancestors"] = [{"id": args.parent}]
+        note = " (wiki markup would be converted to storage first)" if args.format == "wiki" else ""
+        emit_dry_run(
+            {"method": "POST", "path": "/rest/api/content", "body": intent_body},
+            args,
+            human=f"would create {page_type} {args.title!r} in space {args.space}{note}",
+        )
+        return
+
+    client = get_confluence(args)
+    content = args.content
+    if args.format == "wiki":
+        content = _convert_wiki_to_storage(client, content)
+
     payload: dict = {
         "type": page_type,
         "title": args.title,
         "space": {"key": args.space},
         "body": {
             "storage": {
-                "value": args.content,
+                "value": content,
                 "representation": "storage",
             }
         },
@@ -77,15 +138,6 @@ def cmd_create(args):
     if args.parent:
         payload["ancestors"] = [{"id": args.parent}]
 
-    if args.dry_run:
-        emit_dry_run(
-            {"method": "POST", "path": "/rest/api/content", "body": payload},
-            args,
-            human=f"would create {page_type} {args.title!r} in space {args.space}",
-        )
-        return
-
-    client = get_confluence(args)
     data = client.post("content", payload)
     emit(data, args,
          human=f"created {page_type} {data.get('id')}: {data.get('title')} "
@@ -96,6 +148,9 @@ def cmd_update(args):
     if args.title is None and args.content is None:
         raise ValidationError("no field given to update (need --title and/or --content)")
 
+    if args.content is not None:
+        _maybe_warn_format(args.content, args.format)
+
     if args.dry_run:
         # In dry-run we cannot read current version; show planned envelope shape.
         intent_body = {
@@ -105,14 +160,20 @@ def cmd_update(args):
         }
         if args.content is not None:
             intent_body["body"] = {
-                "storage": {"value": args.content, "representation": "storage"}
+                "storage": {
+                    "value": args.content if args.format == "storage"
+                              else "<converted from --format wiki at run time>",
+                    "representation": "storage",
+                }
             }
         fields = [k for k, v in (("title", args.title), ("content", args.content)) if v is not None]
+        note = (" (wiki markup would be converted to storage first)"
+                if args.content is not None and args.format == "wiki" else "")
         emit_dry_run(
             {"method": "PUT", "path": f"/rest/api/content/{args.id}", "body": intent_body},
             args,
             human=f"would update page {args.id} fields: {', '.join(fields)} "
-                  f"(version bumped from current+1)",
+                  f"(version bumped from current+1){note}",
         )
         return
 
@@ -125,7 +186,10 @@ def cmd_update(args):
         "version": {"number": current_version + 1},
     }
     if args.content is not None:
-        payload["body"] = {"storage": {"value": args.content, "representation": "storage"}}
+        content = args.content
+        if args.format == "wiki":
+            content = _convert_wiki_to_storage(client, content)
+        payload["body"] = {"storage": {"value": content, "representation": "storage"}}
     else:
         # Re-send current body so the PUT does not blank the page.
         existing_body = ((current.get("body") or {}).get("storage") or {}).get("value")
@@ -165,21 +229,22 @@ def cmd_delete(args):
 
 def cmd_children(args):
     client = get_confluence(args)
-    children = paginate(
+    children, truncated, next_start = paginate_meta(
         client,
         f"content/{args.id}/child/page",
-        params={"expand": "version"},
+        params={"expand": "version", "start": args.start},
         limit=args.limit,
         page_size=25,
     )
-    if args.json:
-        emit({"results": children, "size": len(children)}, args)
-        return
     if not children:
-        emit([], args, human=f"no child pages on {args.id}")
+        emit({"returned": 0, "total": None, "truncated": False, "results": []},
+             args, human=f"no child pages on {args.id}")
         return
+    hint = (f"rerun with a higher --limit (or --start {next_start}) to fetch more"
+            if truncated else None)
     lines = [f"{c.get('id'):<10} {c.get('title')}" for c in children]
-    emit(children, args, human="\n".join(lines) + f"\n\n{len(children)} child page(s)")
+    emit_list(children, args, lines, total=None, truncated=truncated, next_hint=hint,
+              item_name="child page", key="results")
 
 
 def cmd_ancestors(args):
@@ -252,16 +317,26 @@ def main():
     c = sub.add_parser("create", help="create a page or blogpost")
     c.add_argument("--space", required=True, help="space key")
     c.add_argument("--title", required=True)
-    c.add_argument("--content", required=True, help="storage-format XHTML body")
+    c.add_argument("--content", required=True,
+                    help="page body; storage-format XHTML by default, or Confluence "
+                         "wiki markup with --format wiki")
     c.add_argument("--parent", help="parent page id (omit for top-level)")
     c.add_argument("--type", choices=["page", "blogpost"], default="page")
+    c.add_argument("--format", choices=["storage", "wiki"], default="storage",
+                    help="--content representation: 'storage' (default, raw XHTML) or "
+                         "'wiki' (Confluence wiki markup, converted server-side before saving)")
     add_common_args(c)
     c.set_defaults(func=cmd_create)
 
     u = sub.add_parser("update", help="update a page (auto version-bump)")
     u.add_argument("id")
     u.add_argument("--title")
-    u.add_argument("--content", help="storage-format XHTML body")
+    u.add_argument("--content",
+                    help="page body; storage-format XHTML by default, or Confluence "
+                         "wiki markup with --format wiki")
+    u.add_argument("--format", choices=["storage", "wiki"], default="storage",
+                    help="--content representation: 'storage' (default, raw XHTML) or "
+                         "'wiki' (Confluence wiki markup, converted server-side before saving)")
     add_common_args(u)
     u.set_defaults(func=cmd_update)
 
@@ -275,6 +350,7 @@ def main():
     ch = sub.add_parser("children", help="list direct child pages")
     ch.add_argument("id")
     ch.add_argument("--limit", type=int, default=100)
+    ch.add_argument("--start", type=int, default=0, help="initial pagination offset")
     add_common_args(ch)
     ch.set_defaults(func=cmd_children)
 

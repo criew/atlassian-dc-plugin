@@ -74,7 +74,19 @@ python skills/jira-dc/scripts/utility/jira_rules.py auto-discover
 ```
 
 ## Formatting
-IMPORTANT: Always use the Atlassian/Jira Wiki Markup language for comments, page content, and descriptions in Jira, Confluence, and Bitbucket to ensure correct rendering of formatting and technical terms.
+
+Each product speaks a different markup dialect — Jira/Confluence use Wiki Markup
+(Confluence also accepts storage-format XHTML or `--format wiki`), Bitbucket PR
+text uses Markdown. See "Formatting" in the respective skill's SKILL.md before
+writing descriptions, comments, or page bodies — using the wrong dialect either
+renders literal punctuation or, on Confluence, can trigger an HTTP 400.
+
+## Truncated results
+
+List/search results across all three skills can be cut off. After EVERY list/search
+call, check for `"truncated": true` in JSON, a trailing "MORE RESULTS EXIST" line
+in human mode, or `notice: output truncated` on stderr — and follow the given hint
+to fetch the rest before answering.
 
 ## Safety
 
