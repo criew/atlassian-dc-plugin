@@ -105,6 +105,19 @@ class BitbucketClient:
             raise APIError(f"Bitbucket server error ({resp.status_code}): {_extract_bb_error(resp)}")
         return resp
 
+    def current_username(self):
+        # type: () -> Optional[str]
+        """Name of the PAT owner, from the ``X-AUSERNAME`` response header.
+
+        Bitbucket has no /myself endpoint, but every authenticated response
+        carries this header. Returns None if it cannot be determined.
+        """
+        try:
+            resp = self.get_raw("application-properties")
+        except Exception:  # noqa: BLE001
+            return None
+        return resp.headers.get("X-AUSERNAME") or None
+
     def post(self, path, body=None):
         # type: (str, Optional[dict]) -> Any
         url = self._url(path)

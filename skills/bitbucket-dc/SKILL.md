@@ -84,8 +84,24 @@ Subcommands:
 - `list [--project KEY] [--repo SLUG] [--state OPEN|MERGED|DECLINED|ALL] [--role AUTHOR|REVIEWER|PARTICIPANT] [--participant-status UNAPPROVED|NEEDS_WORK|APPROVED] [--direction INCOMING|OUTGOING] [--at refs/heads/main] [--limit N]`
   Three modes: (1) no flags → global dashboard, all PRs you're involved in; (2) `--project` only → all PRs across all repos in that project; (3) `--project` + `--repo` → single repo.
 - `get --project KEY --repo SLUG --id PR_ID`
-- `create --project KEY --repo SLUG --title "..." --from-branch SRC --to-branch DST [--description ...] [--reviewer NAME --reviewer NAME]`
-- `update --project KEY --repo SLUG --id PR_ID --version V [--title ...] [--description ...] [--to-branch ...] [--reviewer NAME --reviewer NAME]`
+- `create --project KEY --repo SLUG --title "..." --from-branch SRC --to-branch DST [--description ...] [--reviewer NAME --reviewer NAME] [--draft] [--no-default-reviewers]`
+- `update --project KEY --repo SLUG --id PR_ID --version V [--title ...] [--description ...] [--to-branch ...] [--reviewer NAME --reviewer NAME] [--add-default-reviewers] [--draft | --publish]`
+
+  **Default reviewers:** the REST API does not add the repo's default reviewers
+  by itself — `create` looks them up and merges them with `--reviewer`
+  (the PR author is dropped automatically — Bitbucket never allows the author as reviewer). Use
+  `--no-default-reviewers` only if the user explicitly wants that. For an
+  existing PR without its default reviewers, run `update --add-default-reviewers`.
+  A `warning: reviewers not set …` / `could not fetch default reviewers …` on
+  stderr means reviewers are missing — tell the user.
+
+  **Draft PRs** (Bitbucket DC 8.18+): `create --draft` creates a draft (no
+  review notifications, cannot be merged). `update --publish` marks it ready
+  for review; `update --draft` converts it back. On older servers the flag is
+  ignored and a warning is printed — tell the user the PR is NOT a draft.
+
+  `update` keeps all fields you do not pass (title, description, reviewers);
+  only `--reviewer` replaces the reviewer list.
 - `decline --project KEY --repo SLUG --id PR_ID --version V`
 - `merge --project KEY --repo SLUG --id PR_ID --version V [--message ...] [--strategy merge-commit|squash|fast-forward]`
 - `diff --project KEY --repo SLUG --id PR_ID [--context-lines N] [--whitespace show|ignore-all]`

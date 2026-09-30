@@ -41,6 +41,7 @@ def _simplify_pr(pr: dict) -> dict:
         "version": pr.get("version"),
         "title": pr.get("title"),
         "state": pr.get("state"),
+        "draft": bool(pr.get("draft")),
         "open": pr.get("open"),
         "closed": pr.get("closed"),
         "fromRef": from_ref.get("displayId"),
@@ -182,7 +183,8 @@ def cmd_list(args):
     for pr in values:
         s = _simplify_pr(pr)
         prefix = f"{s.get('project', '?')}/{s.get('repo', '?')} " if show_repo else ""
-        lines.append(f"{prefix}#{s['id']:<5} [{s['state']:<8}] {s['fromRef']} -> {s['toRef']} "
+        state = "DRAFT" if s["draft"] and s["state"] == "OPEN" else s["state"]
+        lines.append(f"{prefix}#{s['id']:<5} [{state:<8}] {s['fromRef']} -> {s['toRef']} "
                      f"by {s['author']:<15} {s['title']}")
     emit_list([_simplify_pr(pr) for pr in values], args, lines,
               total=None, truncated=truncated, next_hint=hint,
@@ -194,22 +196,82 @@ def cmd_get(args):
     data = client.get(f"projects/{args.project}/repos/{args.repo}/pull-requests/{args.id}")
     s = _simplify_pr(data)
     emit(data, args,
-         human=f"#{s['id']} v{s['version']} [{s['state']}] {s['fromRef']} -> {s['toRef']}: "
+         human=f"#{s['id']} v{s['version']} [{s['state']}{' DRAFT' if s['draft'] else ''}] "
+               f"{s['fromRef']} -> {s['toRef']}: "
                f"{s['title']}")
 
 
-def _fetch_default_reviewers(client, project, repo, from_ref, to_ref):
-    """Fetch default reviewers configured for this source/target combination."""
-    path = (f"/rest/default-reviewers/1.0/projects/{project}/repos/{repo}"
-            f"/reviewers")
-    params = {"sourceRefId": from_ref, "targetRefId": to_ref}
+def _warn(msg):
+    # type: (str) -> None
+    sys.stderr.write(f"warning: {msg}\n")
+
+
+def _repo_id(client, project, repo):
+    # type: (object, str, str) -> Optional[int]
+    data = client.get(f"projects/{project}/repos/{repo}")
+    return data.get("id") if isinstance(data, dict) else None
+
+
+def _fetch_default_reviewers(client, project, repo, from_ref, to_ref, repo_id=None):
+    """Fetch default reviewers configured for this source/target combination.
+
+    The endpoint requires the numeric repository ids in addition to the refs —
+    without ``sourceRepoId``/``targetRepoId`` Bitbucket answers 400. Failures
+    are reported on stderr (never silently) and yield an empty list so PR
+    creation can still proceed.
+    """
     try:
+        if repo_id is None:
+            repo_id = _repo_id(client, project, repo)
+        path = (f"/rest/default-reviewers/1.0/projects/{project}/repos/{repo}"
+                f"/reviewers")
+        params = {"sourceRepoId": repo_id, "targetRepoId": repo_id,
+                  "sourceRefId": from_ref, "targetRefId": to_ref}
         data = client.get(path, params=params)
-    except Exception:
+    except Exception as e:  # noqa: BLE001
+        _warn(f"could not fetch default reviewers: {e}")
         return []
     if not isinstance(data, list):
         return []
-    return [entry.get("name") for entry in data if entry.get("name")]
+    return [entry.get("name") for entry in data
+            if entry.get("name") and entry.get("active", True) is not False]
+
+
+def _reviewer_body(names, author=None):
+    # type: (list, Optional[str]) -> list
+    """Deduplicate reviewer names and drop the PR author.
+
+    Bitbucket never keeps the author as reviewer (older versions reject the
+    request, 8.19 drops it silently) — filtering avoids both.
+    """
+    result = []
+    seen = set()
+    for n in names:
+        key = n.lower()
+        if key in seen or (author and key == author.lower()):
+            continue
+        seen.add(key)
+        result.append({"user": {"name": n}})
+    return result
+
+
+def _check_reviewers(requested, data):
+    # type: (list, dict) -> None
+    got = {((rv.get("user") or {}).get("name") or "").lower()
+           for rv in (data.get("reviewers") or [])}
+    missing = [r["user"]["name"] for r in requested
+               if r["user"]["name"].lower() not in got]
+    if missing:
+        _warn(f"reviewers not set on PR #{data.get('id')}: {', '.join(missing)}")
+
+
+def _check_draft(wanted, data):
+    # type: (Optional[bool], dict) -> None
+    if wanted is None:
+        return
+    if bool(data.get("draft")) != wanted:
+        _warn(f"server did not apply draft={str(wanted).lower()} to PR #{data.get('id')} "
+              "(draft PRs require Bitbucket Data Center 8.18+)")
 
 
 def cmd_create(args):
@@ -228,57 +290,108 @@ def cmd_create(args):
     }
     if args.description is not None:
         body["description"] = args.description
+    draft = bool(getattr(args, "draft", False))
+    if draft:
+        body["draft"] = True
 
     explicit = list(args.reviewer or [])
+    path = f"projects/{args.project}/repos/{args.repo}/pull-requests"
+    kind = "draft PR" if draft else "PR"
 
-    if not args.dry_run:
-        client = get_bitbucket(args)
-        default_names = _fetch_default_reviewers(
-            client, args.project, args.repo, from_ref, to_ref)
-        all_names = list(dict.fromkeys(explicit + default_names))
-        if all_names:
-            body["reviewers"] = [{"user": {"name": n}} for n in all_names]
-        data = client.post(
-            f"projects/{args.project}/repos/{args.repo}/pull-requests", body)
-        emit(data, args,
-             human=f"created PR #{data.get('id')} on {args.project}/{args.repo}")
+    if args.dry_run:
+        if explicit:
+            body["reviewers"] = _reviewer_body(explicit)
+        note = ("" if getattr(args, "no_default_reviewers", False)
+                else " (+ default reviewers resolved at creation)")
+        emit_dry_run(
+            {"method": "POST", "path": f"/rest/api/1.0/{path}", "body": body},
+            args,
+            human=f"would create {kind} {args.from_branch} -> {args.to_branch} "
+                  f"on {args.project}/{args.repo}: {args.title!r}{note}",
+        )
         return
 
-    if explicit:
-        body["reviewers"] = [{"user": {"name": r}} for r in explicit]
-    path = f"projects/{args.project}/repos/{args.repo}/pull-requests"
-    emit_dry_run(
-        {"method": "POST", "path": f"/rest/api/1.0/{path}", "body": body},
-        args,
-        human=f"would create PR {args.from_branch} -> {args.to_branch} "
-              f"on {args.project}/{args.repo}: {args.title!r}",
-    )
+    client = get_bitbucket(args)
+    default_names = []
+    if not getattr(args, "no_default_reviewers", False):
+        default_names = _fetch_default_reviewers(
+            client, args.project, args.repo, from_ref, to_ref)
+    author = client.current_username()
+    reviewers = _reviewer_body(explicit + default_names, author)
+    if reviewers:
+        body["reviewers"] = reviewers
+    data = client.post(path, body)
+    _check_reviewers(reviewers, data)
+    if draft:
+        _check_draft(True, data)
+    names = [r["user"]["name"] for r in reviewers]
+    emit(data, args,
+         human=f"created {kind} #{data.get('id')} on {args.project}/{args.repo}"
+               + (f" (reviewers: {', '.join(names)})" if names else " (no reviewers)"))
 
 
 def cmd_update(args):
-    body: dict = {"version": args.version}
+    draft = None  # type: Optional[bool]
+    if getattr(args, "draft", False):
+        draft = True
+    elif getattr(args, "publish", False):
+        draft = False
+    add_defaults = getattr(args, "add_default_reviewers", False)
+    changes = {}
     if args.title is not None:
-        body["title"] = args.title
+        changes["title"] = args.title
     if args.description is not None:
-        body["description"] = args.description
+        changes["description"] = args.description
     if args.to_branch:
-        body["toRef"] = {"id": _ref(args.to_branch)}
+        changes["toRef"] = {"id": _ref(args.to_branch)}
     if args.reviewer is not None:
-        body["reviewers"] = [{"user": {"name": r}} for r in args.reviewer]
-    if len(body) == 1:
+        changes["reviewers"] = _reviewer_body([r for r in args.reviewer if r])
+    if draft is not None:
+        changes["draft"] = draft
+    if not changes and not add_defaults:
         raise ValidationError("no field given to update")
     path = f"projects/{args.project}/repos/{args.repo}/pull-requests/{args.id}"
+    fields = list(changes) + (["reviewers(+defaults)"] if add_defaults else [])
     if args.dry_run:
         emit_dry_run(
-            {"method": "PUT", "path": f"/rest/api/1.0/{path}", "body": body},
+            {"method": "PUT", "path": f"/rest/api/1.0/{path}",
+             "body": dict(changes, version=args.version)},
             args,
-            human=f"would update PR #{args.id} fields: "
-                  f"{', '.join(k for k in body if k != 'version')}",
+            human=f"would update PR #{args.id} fields: {', '.join(fields)}",
         )
         return
     client = get_bitbucket(args)
+    # PUT replaces the PR: omitted fields (notably reviewers, description) may
+    # be cleared. Start from the current state and apply only the changes.
+    current = client.get(path)
+    if current.get("version") != args.version:
+        raise ValidationError(
+            f"PR #{args.id} is at version {current.get('version')}, not {args.version} "
+            "- re-fetch it and retry")
+    body = {
+        "version": args.version,
+        "title": current.get("title"),
+        "reviewers": [{"user": {"name": (rv.get("user") or {}).get("name")}}
+                      for rv in (current.get("reviewers") or [])],
+    }
+    if current.get("description") is not None:
+        body["description"] = current["description"]
+    body.update(changes)
+    if add_defaults:
+        from_ref = (current.get("fromRef") or {}).get("id")
+        to_ref = (body.get("toRef") or current.get("toRef") or {}).get("id")
+        defaults = _fetch_default_reviewers(
+            client, args.project, args.repo, from_ref, to_ref)
+        author = ((current.get("author") or {}).get("user") or {}).get("name")
+        body["reviewers"] = _reviewer_body(
+            [r["user"]["name"] for r in body["reviewers"]] + defaults, author)
     data = client.put(path, body)
-    emit(data, args, human=f"updated PR #{args.id} (now v{data.get('version')})")
+    if "reviewers" in changes or add_defaults:
+        _check_reviewers(body["reviewers"], data)
+    _check_draft(draft, data)
+    emit(data, args, human=f"updated PR #{args.id} (now v{data.get('version')})"
+                           + (" - published" if draft is False else "")
+                           + (" - converted to draft" if draft else ""))
 
 
 def cmd_decline(args):
@@ -456,7 +569,11 @@ def main():
     c.add_argument("--to-branch", required=True, help="target branch")
     c.add_argument("--description")
     c.add_argument("--reviewer", action="append", default=[],
-                   help="reviewer username (repeat for multiple)")
+                   help="reviewer username (repeat for multiple); merged with default reviewers")
+    c.add_argument("--draft", action="store_true",
+                   help="create as draft PR (Bitbucket DC 8.18+); publish later with update --publish")
+    c.add_argument("--no-default-reviewers", action="store_true",
+                   help="do not add the repository's default reviewers")
     add_common_args(c)
     c.set_defaults(func=cmd_create)
 
@@ -469,6 +586,12 @@ def main():
     u.add_argument("--to-branch", help="retarget the PR")
     u.add_argument("--reviewer", action="append",
                    help="REPLACES the reviewer list (repeat); pass once with empty to clear")
+    u.add_argument("--add-default-reviewers", action="store_true",
+                   help="add the repository's default reviewers to the existing list")
+    dg = u.add_mutually_exclusive_group()
+    dg.add_argument("--draft", action="store_true", help="convert the PR to a draft")
+    dg.add_argument("--publish", action="store_true",
+                    help="publish a draft PR (mark ready for review)")
     add_common_args(u)
     u.set_defaults(func=cmd_update)
 

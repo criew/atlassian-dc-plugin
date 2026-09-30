@@ -301,6 +301,33 @@ class TestPR:
         assert r.returncode == 0
         assert "DRY RUN" in r.stderr
 
+    def test_create_draft_dry_run(self, bb_runner):
+        r = bb_runner(
+            "core/bitbucket_pr.py", "create",
+            "--project", "P", "--repo", "r",
+            "--title", "x", "--from-branch", "f", "--to-branch", "main", "--draft",
+            "--dry-run", "--json", instances=INST,
+        )
+        assert r.returncode == 0
+        assert json.loads(r.stdout)["intent"]["body"]["draft"] is True
+
+    def test_update_publish_dry_run(self, bb_runner):
+        r = bb_runner(
+            "core/bitbucket_pr.py", "update",
+            "--project", "P", "--repo", "r", "--id", "1", "--version", "0",
+            "--publish", "--dry-run", "--json", instances=INST,
+        )
+        assert r.returncode == 0
+        assert json.loads(r.stdout)["intent"]["body"]["draft"] is False
+
+    def test_update_draft_and_publish_are_exclusive(self, bb_runner):
+        r = bb_runner(
+            "core/bitbucket_pr.py", "update",
+            "--project", "P", "--repo", "r", "--id", "1", "--version", "0",
+            "--draft", "--publish", instances=INST,
+        )
+        assert r.returncode != 0
+
     def test_update_without_field_fails(self, bb_runner):
         r = bb_runner(
             "core/bitbucket_pr.py", "update",

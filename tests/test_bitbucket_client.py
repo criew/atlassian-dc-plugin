@@ -181,80 +181,180 @@ def test_delete_can_send_body(client):
                                 else captured[0].encode())
 
 
+DR_URL = "http://bb.test/rest/default-reviewers/1.0/projects/P/repos/R/reviewers"
+REPO_URL = "http://bb.test/rest/api/1.0/projects/P/repos/R"
+PROPS_URL = "http://bb.test/rest/api/1.0/application-properties"
+PRS_URL = "http://bb.test/rest/api/1.0/projects/P/repos/R/pull-requests"
+
+
+def _run_pr_cmd(client, fn_name, **kw):
+    import argparse
+    import core.bitbucket_pr as pr_mod
+    defaults = dict(project="P", repo="R", dry_run=False, json=True, quiet=False,
+                    instance=None, debug=False)
+    defaults.update(kw)
+    args = argparse.Namespace(**defaults)
+    orig = pr_mod.get_bitbucket
+    pr_mod.get_bitbucket = lambda _args: client
+    try:
+        getattr(pr_mod, fn_name)(args)
+    finally:
+        pr_mod.get_bitbucket = orig
+
+
+def _capture_json(method, url, captured, reply):
+    import json as _json
+
+    def _cb(req):
+        captured.update(_json.loads(req.body))
+        return (200 if method == responses.PUT else 201, {}, _json.dumps(reply(captured)))
+
+    responses.add_callback(method, url, callback=_cb)
+
+
+def _pr_reply(body):
+    return {"id": 99, "version": body.get("version", 0) + 1, "title": body.get("title"),
+            "draft": body.get("draft", False),
+            "reviewers": [{"user": r["user"]} for r in body.get("reviewers", [])]}
+
+
 @responses.activate
-def test_fetch_default_reviewers_returns_names(client):
+def test_fetch_default_reviewers_sends_repo_ids_and_refs(client):
     from core.bitbucket_pr import _fetch_default_reviewers
+    responses.add(responses.GET, REPO_URL, json={"id": 42, "slug": "R"})
     responses.add(
-        responses.GET,
-        "http://bb.test/rest/default-reviewers/1.0/projects/P/repos/R/reviewers",
-        json=[{"name": "alice", "active": True}, {"name": "bob", "active": True}],
-        status=200,
+        responses.GET, DR_URL,
+        json=[{"name": "alice", "active": True}, {"name": "bob", "active": True},
+              {"name": "gone", "active": False}],
     )
     names = _fetch_default_reviewers(
         client, "P", "R", "refs/heads/feature/x", "refs/heads/main")
     assert names == ["alice", "bob"]
-    assert "sourceRefId" in responses.calls[0].request.url
-    assert "targetRefId" in responses.calls[0].request.url
+    url = responses.calls[1].request.url
+    for key in ("sourceRepoId=42", "targetRepoId=42", "sourceRefId=", "targetRefId="):
+        assert key in url
 
 
 @responses.activate
-def test_fetch_default_reviewers_survives_404(client):
+def test_fetch_default_reviewers_warns_on_error(client, capsys):
     from core.bitbucket_pr import _fetch_default_reviewers
-    responses.add(
-        responses.GET,
-        "http://bb.test/rest/default-reviewers/1.0/projects/P/repos/R/reviewers",
-        json={"errors": [{"message": "not found"}]},
-        status=404,
-    )
+    responses.add(responses.GET, DR_URL,
+                  json={"errors": [{"message": "sourceRepoId is required"}]}, status=400)
     names = _fetch_default_reviewers(
-        client, "P", "R", "refs/heads/a", "refs/heads/b")
+        client, "P", "R", "refs/heads/a", "refs/heads/b", repo_id=1)
     assert names == []
+    assert "sourceRepoId is required" in capsys.readouterr().err
 
 
 @responses.activate
-def test_create_pr_merges_default_reviewers(client):
-    from core.bitbucket_pr import _fetch_default_reviewers, cmd_create
-    import argparse
+def test_create_pr_merges_default_reviewers_and_drops_author(client):
+    responses.add(responses.GET, REPO_URL, json={"id": 7})
+    responses.add(responses.GET, DR_URL,
+                  json=[{"name": "default-user"}, {"name": "me"}, {"name": "Explicit-User"}])
+    responses.add(responses.GET, PROPS_URL, json={}, headers={"X-AUSERNAME": "me"})
+    body = {}
+    _capture_json(responses.POST, PRS_URL, body, _pr_reply)
 
-    responses.add(
-        responses.GET,
-        "http://bb.test/rest/default-reviewers/1.0/projects/P/repos/R/reviewers",
-        json=[{"name": "default-user", "active": True}],
-        status=200,
-    )
-    captured_body = {}
+    _run_pr_cmd(client, "cmd_create", title="T", from_branch="feature/x",
+                to_branch="main", description=None, reviewer=["explicit-user"])
 
-    def _cb(req):
-        import json as _json
-        captured_body.update(_json.loads(req.body))
-        return (201, {}, _json.dumps({"id": 99, "version": 0, "title": "T",
-                                       "timeSpent": None}))
+    names = [r["user"]["name"] for r in body["reviewers"]]
+    assert names == ["explicit-user", "default-user"]
+    assert "draft" not in body
 
-    responses.add_callback(
-        responses.POST,
-        "http://bb.test/rest/api/1.0/projects/P/repos/R/pull-requests",
-        callback=_cb,
-    )
 
-    args = argparse.Namespace(
-        project="P", repo="R", title="T",
-        from_branch="feature/x", to_branch="main",
-        description=None, reviewer=["explicit-user"],
-        dry_run=False, json=True, quiet=False,
-        instance=None, debug=False,
-    )
-    # Monkey-patch get_bitbucket to return our test client
-    import core.bitbucket_pr as pr_mod
-    orig = pr_mod.get_bitbucket
-    pr_mod.get_bitbucket = lambda _args: client
-    try:
-        pr_mod.cmd_create(args)
-    finally:
-        pr_mod.get_bitbucket = orig
+@responses.activate
+def test_create_draft_pr(client, capsys):
+    responses.add(responses.GET, REPO_URL, json={"id": 7})
+    responses.add(responses.GET, DR_URL, json=[])
+    responses.add(responses.GET, PROPS_URL, json={}, headers={"X-AUSERNAME": "me"})
+    body = {}
+    _capture_json(responses.POST, PRS_URL, body, _pr_reply)
 
-    reviewer_names = [r["user"]["name"] for r in captured_body.get("reviewers", [])]
-    assert "explicit-user" in reviewer_names
-    assert "default-user" in reviewer_names
+    _run_pr_cmd(client, "cmd_create", title="T", from_branch="f", to_branch="main",
+                description=None, reviewer=[], draft=True)
+
+    assert body["draft"] is True
+    assert "warning" not in capsys.readouterr().err
+
+
+@responses.activate
+def test_create_draft_warns_when_server_ignores_it(client, capsys):
+    responses.add(responses.GET, REPO_URL, json={"id": 7})
+    responses.add(responses.GET, DR_URL, json=[])
+    responses.add(responses.GET, PROPS_URL, json={})
+    body = {}
+    _capture_json(responses.POST, PRS_URL, body,
+                  lambda b: dict(_pr_reply(b), draft=False))
+
+    _run_pr_cmd(client, "cmd_create", title="T", from_branch="f", to_branch="main",
+                description=None, reviewer=[], draft=True)
+
+    assert "8.18" in capsys.readouterr().err
+
+
+@responses.activate
+def test_create_no_default_reviewers_skips_lookup(client):
+    responses.add(responses.GET, PROPS_URL, json={})
+    body = {}
+    _capture_json(responses.POST, PRS_URL, body, _pr_reply)
+
+    _run_pr_cmd(client, "cmd_create", title="T", from_branch="f", to_branch="main",
+                description=None, reviewer=[], no_default_reviewers=True)
+
+    assert all("default-reviewers" not in c.request.url for c in responses.calls)
+    assert "reviewers" not in body
+
+
+def _current_pr():
+    return {"id": 5, "version": 3, "title": "Old", "description": "Desc", "draft": True,
+            "author": {"user": {"name": "me"}},
+            "fromRef": {"id": "refs/heads/f"}, "toRef": {"id": "refs/heads/main"},
+            "reviewers": [{"user": {"name": "alice"}, "approved": False}]}
+
+
+def _update_kw(**kw):
+    base = dict(id=5, version=3, title=None, description=None, to_branch=None,
+                reviewer=None, draft=False, publish=False, add_default_reviewers=False)
+    base.update(kw)
+    return base
+
+
+@responses.activate
+def test_update_publish_keeps_reviewers_and_description(client):
+    responses.add(responses.GET, PRS_URL + "/5", json=_current_pr())
+    body = {}
+    _capture_json(responses.PUT, PRS_URL + "/5", body, _pr_reply)
+
+    _run_pr_cmd(client, "cmd_update", **_update_kw(publish=True))
+
+    assert body["draft"] is False
+    assert body["version"] == 3
+    assert body["title"] == "Old"
+    assert body["description"] == "Desc"
+    assert [r["user"]["name"] for r in body["reviewers"]] == ["alice"]
+
+
+@responses.activate
+def test_update_add_default_reviewers(client):
+    responses.add(responses.GET, PRS_URL + "/5", json=_current_pr())
+    responses.add(responses.GET, REPO_URL, json={"id": 7})
+    responses.add(responses.GET, DR_URL,
+                  json=[{"name": "bob"}, {"name": "me"}, {"name": "alice"}])
+    body = {}
+    _capture_json(responses.PUT, PRS_URL + "/5", body, _pr_reply)
+
+    _run_pr_cmd(client, "cmd_update", **_update_kw(add_default_reviewers=True))
+
+    assert [r["user"]["name"] for r in body["reviewers"]] == ["alice", "bob"]
+    assert "draft" not in body
+
+
+@responses.activate
+def test_update_rejects_stale_version(client):
+    responses.add(responses.GET, PRS_URL + "/5", json=_current_pr())
+    with pytest.raises(ValidationError, match="version 3"):
+        _run_pr_cmd(client, "cmd_update", **_update_kw(version=2, title="New"))
 
 
 def test_pat_token_never_appears_in_real_error(client, monkeypatch):
